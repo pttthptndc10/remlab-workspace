@@ -27,6 +27,8 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const isAdminOrLeader = currentUser.role === 'admin' || currentUser.role === 'leader'
+  const isAssignee = currentUser.id === task.assignee_id
+  const canEdit = isAdminOrLeader || isAssignee
   const overdue = isOverdue(task.deadline, task.status)
 
   const [form, setForm] = useState({
@@ -109,7 +111,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
   }
 
   return (
-    <Modal isOpen onClose={onClose} title="Chi tiết Task" size="lg">
+    <Modal isOpen onClose={onClose} title={canEdit ? 'Chi tiết Task' : 'Chi tiết Task (Chỉ xem)'} size="lg">
       <div className="space-y-5">
         {/* Title */}
         <div>
@@ -122,6 +124,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
             value={form.title}
             onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
             className="input-dark w-full text-base font-semibold"
+            disabled={!canEdit}
           />
         </div>
 
@@ -136,6 +139,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
               value={form.status}
               onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as TaskStatus }))}
               className="input-dark w-full"
+              disabled={!canEdit}
             >
               {taskStatuses.map((s) => (
                 <option key={s} value={s}>{TASK_STATUS_LABELS[s]}</option>
@@ -151,6 +155,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
               value={form.priority}
               onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value as TaskPriority }))}
               className="input-dark w-full"
+              disabled={!canEdit}
             >
               {priorities.map((p) => (
                 <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
@@ -166,6 +171,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
               value={form.assignee_id}
               onChange={(e) => setForm((p) => ({ ...p, assignee_id: e.target.value }))}
               className="input-dark w-full"
+              disabled={!canEdit}
             >
               <option value="">-- Không giao --</option>
               {projectMembers.map((m) => (
@@ -187,6 +193,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
               value={form.deadline}
               onChange={(e) => setForm((p) => ({ ...p, deadline: e.target.value }))}
               className={`input-dark w-full ${overdue ? 'border-rose-500/50 text-rose-400' : ''}`}
+              disabled={!canEdit}
             />
           </div>
           <div>
@@ -201,6 +208,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
               onChange={(e) => setForm((p) => ({ ...p, attachment_url: e.target.value }))}
               placeholder="https://..."
               className="input-dark w-full"
+              disabled={!canEdit}
             />
           </div>
         </div>
@@ -209,7 +217,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
         <div>
           <div className="flex items-center justify-between mb-2">
             <label htmlFor="task-modal-progress" className="text-xs font-medium text-slate-400">
-              Tiến độ
+              {canEdit ? 'Tiến độ (Kéo thanh trượt màu xanh bên dưới để thay đổi)' : 'Tiến độ'}
             </label>
             <span className="text-sm font-bold text-cyan-400">{form.progress}%</span>
           </div>
@@ -221,8 +229,8 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
             step={5}
             value={form.progress}
             onChange={(e) => setForm((p) => ({ ...p, progress: Number(e.target.value) }))}
-            className="w-full accent-cyan-400"
-            style={{ height: '6px' }}
+            className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!canEdit}
           />
           <ProgressBar value={form.progress} size="sm" className="mt-2" />
         </div>
@@ -239,6 +247,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
             rows={3}
             className="input-dark w-full resize-none"
             placeholder="Mô tả chi tiết..."
+            disabled={!canEdit}
           />
         </div>
 
@@ -255,6 +264,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
             rows={2}
             className="input-dark w-full resize-none"
             placeholder="Ghi chú thêm..."
+            disabled={!canEdit}
           />
         </div>
 
@@ -280,18 +290,20 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
             className="btn-secondary flex items-center gap-2"
           >
             <X className="w-4 h-4" />
-            Hủy
+            Đóng
           </button>
-          <button
-            id="task-modal-save"
-            type="button"
-            onClick={handleSave}
-            className="btn-primary flex items-center gap-2"
-            disabled={loading}
-          >
-            <Save className="w-4 h-4" />
-            {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
-          </button>
+          {canEdit && (
+            <button
+              id="task-modal-save"
+              type="button"
+              onClick={handleSave}
+              className="btn-primary flex items-center gap-2"
+              disabled={loading}
+            >
+              <Save className="w-4 h-4" />
+              {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
+          )}
         </div>
 
         {/* Delete confirm */}
