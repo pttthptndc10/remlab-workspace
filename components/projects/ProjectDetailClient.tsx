@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { ProjectChecklist } from '@/components/projects/ProjectChecklist'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import { formatDate, getInitials, ROLE_LABELS } from '@/lib/utils'
-import type { Project, Task, Profile, ProjectMember, UserRole } from '@/lib/types'
+import { formatDate, getInitials } from '@/lib/utils'
+import type { Project, Task, Profile, ProjectMember } from '@/lib/types'
 import { Calendar, Info, Users, Pencil, CheckSquare } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ProjectForm } from '@/components/projects/ProjectForm'
@@ -23,18 +24,96 @@ type Tab = 'checklist' | 'members' | 'info'
 
 export function ProjectDetailClient({
   project,
-  tasks,
+  tasks: initialTasks,
   members,
   allProfiles,
   currentUser,
 }: ProjectDetailClientProps) {
+  const supabase = createClient()
   const [activeTab, setActiveTab] = useState<Tab>('checklist')
   const [showEdit, setShowEdit] = useState(false)
 
+  // Quản lý state của tasks và project ở component cha để Realtime đồng bộ tiến độ lớn
+  const [tasksState, setTasksState] = useState<Task[]>(initialTasks)
+  const [projectState, setProjectState] = useState<Project>(project)
+
+  // Đồng bộ state khi props từ server thay đổi (sau khi reload/navigation)
+  useEffect(() => {
+    setTasksState(initialTasks)
+  }, [initialTasks])
+
+  useEffect(() => {
+    setProjectState(project)
+  }, [project])
+
+  // Hàm tải lại dữ liệu mới nhất từ database
+  const refetchData = useCallback(async () => {
+    const [tasksRes, projectRes] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role), creator:profiles!tasks_created_by_fkey(id, full_name)')
+        .eq('project_id', project.id)
+        .order('column_order', { ascending: true }),
+      supabase
+        .from('projects')
+        .select('*')
+        .eq('id', project.id)
+        .single()
+    ])
+
+    return {
+      tasks: (tasksRes.data ?? []) as Task[],
+      project: projectRes.data as Project | null
+    }
+  }, [supabase, project.id])
+
+  // Lắng nghe thay đổi qua Supabase Realtime ở component cha
+  useEffect(() => {
+    const channelName = `project-parent-realtime-${project.id}`
+    const channel = supabase
+      .channel(channelName)
+      // Lắng nghe thay đổi của bảng tasks thuộc dự án này
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `project_id=eq.${project.id}`,
+        },
+        async () => {
+          const { tasks: freshTasks } = await refetchData()
+          setTasksState(freshTasks)
+        }
+      )
+      // Lắng nghe thay đổi ghi chú dự án
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'projects',
+          filter: `id=eq.${project.id}`,
+        },
+        async () => {
+          const { project: freshProject } = await refetchData()
+          if (freshProject) {
+            setProjectState(freshProject)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, project.id, refetchData])
+
   const isAdminOrLeader = currentUser.role === 'admin' || currentUser.role === 'leader'
-  // Tiến độ dự án = số task đã hoàn thành / tổng số task
-  const completedTasks = tasks.filter((t) => t.status === 'done').length
-  const completionPct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0
+
+  // Tính toán tiến độ dựa trên tasksState (luôn cập nhật Realtime)
+  const completedTasks = tasksState.filter((t) => t.status === 'done').length
+  const completionPct = tasksState.length > 0 ? Math.round((completedTasks / tasksState.length) * 100) : 0
   const projectMembers = members.map((m) => m.member).filter((m): m is Profile => !!m)
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -45,8 +124,8 @@ export function ProjectDetailClient({
 
   return (
     <DashboardShell
-      title={project.name}
-      subtitle={`${tasks.length} tasks · ${completionPct}% hoàn thành`}
+      title={projectState.name}
+      subtitle={`${tasksState.length} tasks · ${completionPct}% hoàn thành`}
       actions={
         isAdminOrLeader ? (
           <button
@@ -64,11 +143,11 @@ export function ProjectDetailClient({
         {/* Project header info */}
         <div className="glass-card p-5">
           <div className="flex flex-wrap gap-3 items-center">
-            <Badge status={project.status} />
-            <Badge priority={project.priority} />
+            <Badge status={projectState.status} />
+            <Badge priority={projectState.priority} />
             <div className="flex items-center gap-1.5 text-sm text-slate-400">
               <Calendar className="w-4 h-4" />
-              <span>Hạn: {formatDate(project.deadline)}</span>
+              <span>Hạn: {formatDate(projectState.deadline)}</span>
             </div>
             <div className="ml-auto text-sm text-slate-400">
               {members.length} thành viên
@@ -101,17 +180,21 @@ export function ProjectDetailClient({
         {/* Tab content */}
         {activeTab === 'checklist' && (
           <ProjectChecklist
-            tasks={tasks}
-            project={project}
+            tasks={tasksState}
+            project={projectState}
             currentUser={currentUser}
             projectMembers={projectMembers}
+            onSaveSuccess={(updatedTasks, updatedProject) => {
+              setTasksState(updatedTasks)
+              setProjectState(updatedProject)
+            }}
           />
         )}
 
         {activeTab === 'members' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {members.map((pm) => {
-              const memberTasks = tasks.filter((t) => t.assignee_id === pm.member_id)
+              const memberTasks = tasksState.filter((t) => t.assignee_id === pm.member_id)
               const memberDone = memberTasks.filter((t) => t.status === 'done').length
               const memberProgress = memberTasks.length > 0
                 ? Math.round((memberDone / memberTasks.length) * 100)
@@ -147,7 +230,7 @@ export function ProjectDetailClient({
             <div className="space-y-4">
               {(() => {
                 const DIVIDER = '<!--admin-notes-divider-->'
-                const parts = (project.description || '').split(DIVIDER)
+                const parts = (projectState.description || '').split(DIVIDER)
                 const execNotes = parts[0] || ''
                 const adminNotes = parts[1] || ''
                 return (
@@ -174,20 +257,20 @@ export function ProjectDetailClient({
               <div>
                 <p className="text-xs text-slate-500 mb-1">Người tạo</p>
                 <p className="text-sm text-white">
-                  {project.creator?.full_name ?? 'N/A'}
+                  {projectState.creator?.full_name ?? 'N/A'}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">Ngày tạo</p>
-                <p className="text-sm text-white">{formatDate(project.created_at)}</p>
+                <p className="text-sm text-white">{formatDate(projectState.created_at)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">Cập nhật lần cuối</p>
-                <p className="text-sm text-white">{formatDate(project.updated_at)}</p>
+                <p className="text-sm text-white">{formatDate(projectState.updated_at)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">Hạn chót</p>
-                <p className="text-sm text-white">{formatDate(project.deadline)}</p>
+                <p className="text-sm text-white">{formatDate(projectState.deadline)}</p>
               </div>
             </div>
           </div>
@@ -202,7 +285,7 @@ export function ProjectDetailClient({
         size="md"
       >
         <ProjectForm
-          project={project}
+          project={projectState}
           members={allProfiles}
           onSuccess={() => setShowEdit(false)}
           onCancel={() => setShowEdit(false)}

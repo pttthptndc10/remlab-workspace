@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect, useTransition, useRef, useCallback } from 'react'
+import { useState, useEffect, useTransition, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Task, Profile, Project, TaskStatus } from '@/lib/types'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -13,6 +12,7 @@ interface ProjectChecklistProps {
   project: Project
   currentUser: Profile
   projectMembers: Profile[]
+  onSaveSuccess?: (tasks: Task[], project: Project) => void
 }
 
 const DIVIDER = '<!--admin-notes-divider-->'
@@ -22,6 +22,7 @@ export function ProjectChecklist({
   project,
   currentUser,
   projectMembers,
+  onSaveSuccess,
 }: ProjectChecklistProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -45,17 +46,8 @@ export function ProjectChecklist({
   const [adminNotes, setAdminNotes] = useState<string>(initialNotes.admin)
   const [saving, setSaving] = useState(false)
 
-  // Sync with prop updates from server (e.g. after router.refresh finishes)
-  useEffect(() => {
-    setSavedTasks(initialTasks)
-    setLocalTasks(initialTasks)
-  }, [initialTasks])
-
-  useEffect(() => {
-    const updatedNotes = parseNotes(project.description)
-    setExecutorNotes(updatedNotes.executor)
-    setAdminNotes(updatedNotes.admin)
-  }, [project.description])
+  // Ref for isDirty to access it in useEffect callbacks without resetting the effect
+  const isDirtyRef = useRef(false)
 
   // Quyền chỉnh sửa chung cho các mục task công việc
   const isProjectMember = projectMembers.some((m) => m.id === currentUser.id)
@@ -67,7 +59,7 @@ export function ProjectChecklist({
   const canEditExecutorNotes = !isAdmin && (isProjectMember || isCreator)
   const canEditAdminNotes = isAdmin
 
-  // Quyền lưu thay đổi (nếu có quyền sửa bất kỳ phần nào)
+  // Quyền lưu thay đổi
   const canSave = hasEditPermission || canEditExecutorNotes || canEditAdminNotes
 
   // Kiểm tra xem localTasks có thay đổi so với savedTasks hay không
@@ -100,92 +92,35 @@ export function ProjectChecklist({
     (canEditExecutorNotes && hasExecutorNotesChanged) ||
     (canEditAdminNotes && hasAdminNotesChanged)
 
-  // Ref for isDirty to access it in realtime callbacks without resubscribing
-  const isDirtyRef = useRef(isDirty)
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
 
-  // Refetch tasks and project details from database
-  const refetchData = useCallback(async () => {
-    const [tasksRes, projectRes] = await Promise.all([
-      supabase
-        .from('tasks')
-        .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role), creator:profiles!tasks_created_by_fkey(id, full_name)')
-        .eq('project_id', project.id)
-        .order('column_order', { ascending: true }),
-      supabase
-        .from('projects')
-        .select('*')
-        .eq('id', project.id)
-        .single()
-    ])
-
-    return {
-      tasks: (tasksRes.data ?? []) as Task[],
-      project: projectRes.data as Project | null
-    }
-  }, [supabase, project.id])
-
-  // Supabase Realtime subscription for tasks and project updates
+  // Sync with prop updates from parent (Realtime parent updates)
   useEffect(() => {
-    const channelName = `project-realtime-${project.id}`
-    const channel = supabase
-      .channel(channelName)
-      // Listen to any task inserts, updates, deletes
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `project_id=eq.${project.id}`,
-        },
-        async () => {
-          const { tasks: freshTasks } = await refetchData()
-          setSavedTasks(freshTasks)
-          // Only auto-update local list if user doesn't have unsaved edits
-          if (!isDirtyRef.current) {
-            setLocalTasks(freshTasks)
-          } else {
-            toast('🔄 Danh sách công việc đã được người khác cập nhật!', {
-              icon: 'ℹ️',
-              duration: 3000,
-            })
-          }
-        }
-      )
-      // Listen to project notes updates
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'projects',
-          filter: `id=eq.${project.id}`,
-        },
-        async () => {
-          const { project: freshProject } = await refetchData()
-          if (freshProject) {
-            const freshNotes = parseNotes(freshProject.description)
-            if (!isDirtyRef.current) {
-              setExecutorNotes(freshNotes.executor)
-              setAdminNotes(freshNotes.admin)
-            } else {
-              toast('🔄 Ghi chú dự án đã được người khác cập nhật!', {
-                icon: 'ℹ️',
-                duration: 3000,
-              })
-            }
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+    setSavedTasks(initialTasks)
+    if (!isDirtyRef.current) {
+      setLocalTasks(initialTasks)
+    } else {
+      toast('🔄 Danh sách công việc đã được người khác cập nhật!', {
+        icon: 'ℹ️',
+        duration: 3000,
+      })
     }
-  }, [supabase, project.id, refetchData])
+  }, [initialTasks])
+
+  useEffect(() => {
+    const updatedNotes = parseNotes(project.description)
+    if (!isDirtyRef.current) {
+      setExecutorNotes(updatedNotes.executor)
+      setAdminNotes(updatedNotes.admin)
+    } else {
+      toast('🔄 Ghi chú dự án đã được người khác cập nhật!', {
+        icon: 'ℹ️',
+        duration: 3000,
+      })
+    }
+  }, [project.description])
 
   // Chia localTasks thành nhóm chưa hoàn thành và đã hoàn thành để hiển thị
   const pendingTasks = localTasks.filter((t) => t.status !== 'done')
@@ -253,12 +188,14 @@ export function ProjectChecklist({
     }
 
     setSaving(true)
+    let combinedNotes = project.description || ''
+    
     try {
       // 1. Lưu ghi chú dự án nếu có thay đổi
       if (hasExecutorNotesChanged || hasAdminNotesChanged) {
         const finalExecutor = canEditExecutorNotes ? executorNotes.trim() : initialNotes.executor.trim()
         const finalAdmin = canEditAdminNotes ? adminNotes.trim() : initialNotes.admin.trim()
-        const combinedNotes = `${finalExecutor}${DIVIDER}${finalAdmin}`
+        combinedNotes = `${finalExecutor}${DIVIDER}${finalAdmin}`
 
         const { error: projectError } = await supabase
           .from('projects')
@@ -272,6 +209,7 @@ export function ProjectChecklist({
       }
 
       // 2. Xác định các task cần xóa (chỉ thực hiện nếu có quyền hasEditPermission)
+      let insertedData: Task[] = []
       if (hasEditPermission) {
         const tasksToDelete = savedTasks.filter(
           (st) => !localTasks.some((lt) => lt.id === st.id)
@@ -308,7 +246,6 @@ export function ProjectChecklist({
         }
 
         // Thực hiện các API calls thêm mới
-        let insertedData: Task[] = []
         if (tasksToInsert.length > 0) {
           const insertPayload = tasksToInsert.map((t, idx) => ({
             project_id: project.id,
@@ -371,19 +308,31 @@ export function ProjectChecklist({
             }
           }
         }
-
-        // Cập nhật lại state lưu trữ cục bộ
-        const nextSavedTasks = [
-          ...localTasks.filter((lt) => !lt.id.startsWith('temp-')),
-          ...insertedData,
-        ]
-        setSavedTasks(nextSavedTasks)
-        setLocalTasks(nextSavedTasks)
       }
 
       toast.success('Đã lưu thay đổi thành công!')
 
-      // Cập nhật router để render lại các component cha (tiến độ dự án & thông tin)
+      // Cập nhật lại state lưu trữ cục bộ
+      const nextSavedTasks = hasEditPermission
+        ? [
+            ...localTasks.filter((lt) => !lt.id.startsWith('temp-')),
+            ...insertedData,
+          ]
+        : savedTasks
+
+      setSavedTasks(nextSavedTasks)
+      setLocalTasks(nextSavedTasks)
+
+      // Cập nhật state ở component cha ngay lập tức (không cần chờ router.refresh)
+      if (onSaveSuccess) {
+        const updatedProject = {
+          ...project,
+          description: combinedNotes,
+        }
+        onSaveSuccess(nextSavedTasks, updatedProject)
+      }
+
+      // Cập nhật router để đồng bộ với server component
       startTransition(() => {
         router.refresh()
       })
