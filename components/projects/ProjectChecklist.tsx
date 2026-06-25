@@ -64,7 +64,7 @@ export function ProjectChecklist({
   const hasEditPermission = isAdmin || isProjectMember || isCreator
 
   // Quyền ghi chú riêng biệt
-  const canEditExecutorNotes = isProjectMember || isCreator
+  const canEditExecutorNotes = !isAdmin && (isProjectMember || isCreator)
   const canEditAdminNotes = isAdmin
 
   // Quyền lưu thay đổi (nếu có quyền sửa bất kỳ phần nào)
