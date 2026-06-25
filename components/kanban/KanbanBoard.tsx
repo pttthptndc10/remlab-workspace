@@ -61,8 +61,6 @@ export function KanbanBoard({ tasks: initialTasks, projectId, currentUser, proje
     setTasks(initialTasks)
   }, [initialTasks])
 
-  console.log('KanbanBoard projectMembers:', projectMembers);
-
   const columns = buildColumns(tasks)
 
   const sensors = useSensors(

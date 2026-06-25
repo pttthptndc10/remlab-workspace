@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
+import { ProjectChecklist } from '@/components/projects/ProjectChecklist'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { formatDate, getInitials, ROLE_LABELS } from '@/lib/utils'
 import type { Project, Task, Profile, ProjectMember, UserRole } from '@/lib/types'
-import { Calendar, Info, Users, LayoutGrid, Pencil } from 'lucide-react'
+import { Calendar, Info, Users, LayoutGrid, Pencil, CheckSquare } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ProjectForm } from '@/components/projects/ProjectForm'
 import { DashboardShell } from '@/components/layout/DashboardShell'
@@ -19,7 +20,7 @@ interface ProjectDetailClientProps {
   currentUser: Profile
 }
 
-type Tab = 'kanban' | 'members' | 'info'
+type Tab = 'checklist' | 'kanban' | 'members' | 'info'
 
 export function ProjectDetailClient({
   project,
@@ -28,20 +29,17 @@ export function ProjectDetailClient({
   allProfiles,
   currentUser,
 }: ProjectDetailClientProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('kanban')
+  const [activeTab, setActiveTab] = useState<Tab>('checklist')
   const [showEdit, setShowEdit] = useState(false)
 
   const isAdminOrLeader = currentUser.role === 'admin' || currentUser.role === 'leader'
+  // Tiến độ dự án = số task đã hoàn thành / tổng số task
   const completedTasks = tasks.filter((t) => t.status === 'done').length
   const completionPct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0
-  const projectMembers = members.map((m) => {
-    console.log('Mapping member item:', m);
-    return m.member;
-  }).filter((m): m is Profile => !!m);
-  console.log('ProjectDetailClient members:', members);
-  console.log('ProjectDetailClient projectMembers:', projectMembers);
+  const projectMembers = members.map((m) => m.member).filter((m): m is Profile => !!m)
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'kanban', label: 'Kanban', icon: <LayoutGrid className="w-4 h-4" /> },
     { id: 'members', label: 'Thành viên', icon: <Users className="w-4 h-4" /> },
     { id: 'info', label: 'Thông tin', icon: <Info className="w-4 h-4" /> },
@@ -103,6 +101,15 @@ export function ProjectDetailClient({
         </div>
 
         {/* Tab content */}
+        {activeTab === 'checklist' && (
+          <ProjectChecklist
+            tasks={tasks}
+            projectId={project.id}
+            currentUser={currentUser}
+            projectMembers={projectMembers}
+          />
+        )}
+
         {activeTab === 'kanban' && (
           <KanbanBoard
             tasks={tasks}
