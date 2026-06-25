@@ -144,11 +144,31 @@ export function ProjectDetailClient({
 
         {activeTab === 'info' && (
           <div className="glass-card p-6 space-y-4">
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Mô tả dự án</p>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                {project.description ?? 'Không có mô tả.'}
-              </p>
+            <div className="space-y-4">
+              {(() => {
+                const DIVIDER = '<!--admin-notes-divider-->'
+                const parts = (project.description || '').split(DIVIDER)
+                const execNotes = parts[0] || ''
+                const adminNotes = parts[1] || ''
+                return (
+                  <>
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Ghi chú của người thực hiện</p>
+                      <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        {execNotes || 'Không có mô tả / ghi chú.'}
+                      </p>
+                    </div>
+                    {adminNotes && (
+                      <div className="pt-3 border-t border-white/5">
+                        <p className="text-xs text-amber-400 mb-1">Ý kiến / Ghi chú của Admin</p>
+                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                          {adminNotes}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
               <div>

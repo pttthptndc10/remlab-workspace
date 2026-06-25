@@ -15,6 +15,8 @@ interface ProjectChecklistProps {
   projectMembers: Profile[]
 }
 
+const DIVIDER = '<!--admin-notes-divider-->'
+
 export function ProjectChecklist({
   tasks: initialTasks,
   project,
@@ -25,9 +27,22 @@ export function ProjectChecklist({
   const supabase = createClient()
   const [isPending, startTransition] = useTransition()
 
+  // Parse notes from project description
+  const parseNotes = (description: string | null) => {
+    const desc = description || ''
+    const parts = desc.split(DIVIDER)
+    return {
+      executor: parts[0] || '',
+      admin: parts[1] || '',
+    }
+  }
+
+  const initialNotes = parseNotes(project.description)
+
   const [savedTasks, setSavedTasks] = useState<Task[]>(initialTasks)
   const [localTasks, setLocalTasks] = useState<Task[]>(initialTasks)
-  const [projectNotes, setProjectNotes] = useState<string>(project.description || '')
+  const [executorNotes, setExecutorNotes] = useState<string>(initialNotes.executor)
+  const [adminNotes, setAdminNotes] = useState<string>(initialNotes.admin)
   const [saving, setSaving] = useState(false)
 
   // Sync with prop updates from server (e.g. after router.refresh finishes)
@@ -37,14 +52,23 @@ export function ProjectChecklist({
   }, [initialTasks])
 
   useEffect(() => {
-    setProjectNotes(project.description || '')
+    const updatedNotes = parseNotes(project.description)
+    setExecutorNotes(updatedNotes.executor)
+    setAdminNotes(updatedNotes.admin)
   }, [project.description])
 
-  // Quyền chỉnh sửa: Chỉ Admin, người tạo dự án, hoặc thành viên của dự án
+  // Quyền chỉnh sửa chung cho các mục task công việc
   const isProjectMember = projectMembers.some((m) => m.id === currentUser.id)
   const isCreator = project.created_by === currentUser.id
   const isAdmin = currentUser.role === 'admin'
   const hasEditPermission = isAdmin || isProjectMember || isCreator
+
+  // Quyền ghi chú riêng biệt
+  const canEditExecutorNotes = isProjectMember || isCreator
+  const canEditAdminNotes = isAdmin
+
+  // Quyền lưu thay đổi (nếu có quyền sửa bất kỳ phần nào)
+  const canSave = hasEditPermission || canEditExecutorNotes || canEditAdminNotes
 
   // Kiểm tra xem localTasks có thay đổi so với savedTasks hay không
   const hasTasksChanged = () => {
@@ -68,8 +92,13 @@ export function ProjectChecklist({
     return false
   }
 
-  const hasNotesChanged = projectNotes.trim() !== (project.description || '').trim()
-  const isDirty = hasTasksChanged() || hasNotesChanged
+  const hasExecutorNotesChanged = executorNotes.trim() !== initialNotes.executor.trim()
+  const hasAdminNotesChanged = adminNotes.trim() !== initialNotes.admin.trim()
+  
+  const isDirty =
+    hasTasksChanged() ||
+    (canEditExecutorNotes && hasExecutorNotesChanged) ||
+    (canEditAdminNotes && hasAdminNotesChanged)
 
   // Chia localTasks thành nhóm chưa hoàn thành và đã hoàn thành để hiển thị
   const pendingTasks = localTasks.filter((t) => t.status !== 'done')
@@ -127,7 +156,7 @@ export function ProjectChecklist({
 
   // Lưu mọi thay đổi xuống Supabase
   const handleSave = async () => {
-    if (!hasEditPermission) return
+    if (!canSave) return
 
     // Validation: Không cho phép để trống tên công việc
     const hasEmptyTitle = localTasks.some((t) => !t.title.trim())
@@ -139,11 +168,15 @@ export function ProjectChecklist({
     setSaving(true)
     try {
       // 1. Lưu ghi chú dự án nếu có thay đổi
-      if (hasNotesChanged) {
+      if (hasExecutorNotesChanged || hasAdminNotesChanged) {
+        const finalExecutor = canEditExecutorNotes ? executorNotes.trim() : initialNotes.executor.trim()
+        const finalAdmin = canEditAdminNotes ? adminNotes.trim() : initialNotes.admin.trim()
+        const combinedNotes = `${finalExecutor}${DIVIDER}${finalAdmin}`
+
         const { error: projectError } = await supabase
           .from('projects')
           .update({
-            description: projectNotes.trim() || null,
+            description: combinedNotes,
             updated_at: new Date().toISOString(),
           })
           .eq('id', project.id)
@@ -151,117 +184,119 @@ export function ProjectChecklist({
         if (projectError) throw projectError
       }
 
-      // 2. Xác định các task cần xóa
-      const tasksToDelete = savedTasks.filter(
-        (st) => !localTasks.some((lt) => lt.id === st.id)
-      )
+      // 2. Xác định các task cần xóa (chỉ thực hiện nếu có quyền hasEditPermission)
+      if (hasEditPermission) {
+        const tasksToDelete = savedTasks.filter(
+          (st) => !localTasks.some((lt) => lt.id === st.id)
+        )
 
-      // 3. Xác định các task cần thêm mới (có id bắt đầu bằng 'temp-')
-      const tasksToInsert = localTasks.filter((lt) => lt.id.startsWith('temp-'))
+        // 3. Xác định các task cần thêm mới
+        const tasksToInsert = localTasks.filter((lt) => lt.id.startsWith('temp-'))
 
-      // 4. Xác định các task cần cập nhật
-      const tasksToUpdate = localTasks.filter((lt) => {
-        if (lt.id.startsWith('temp-')) return false
-        const saved = savedTasks.find((st) => st.id === lt.id)
-        if (!saved) return false
-        return lt.title !== saved.title || lt.status !== saved.status
-      })
+        // 4. Xác định các task cần cập nhật
+        const tasksToUpdate = localTasks.filter((lt) => {
+          if (lt.id.startsWith('temp-')) return false
+          const saved = savedTasks.find((st) => st.id === lt.id)
+          if (!saved) return false
+          return lt.title !== saved.title || lt.status !== saved.status
+        })
 
-      // Thực hiện các API calls xóa
-      if (tasksToDelete.length > 0) {
-        const deleteIds = tasksToDelete.map((t) => t.id)
-        const { error } = await supabase.from('tasks').delete().in('id', deleteIds)
-        if (error) throw error
-
-        for (const t of tasksToDelete) {
-          await supabase.from('activity_logs').insert({
-            actor_id: currentUser.id,
-            action: 'deleted_task',
-            entity_type: 'task',
-            entity_id: t.id,
-            entity_name: t.title,
-            project_id: project.id,
-            metadata: {},
-          })
-        }
-      }
-
-      // Thực hiện các API calls thêm mới
-      let insertedData: Task[] = []
-      if (tasksToInsert.length > 0) {
-        const insertPayload = tasksToInsert.map((t, idx) => ({
-          project_id: project.id,
-          title: t.title.trim(),
-          status: t.status,
-          notes: null,
-          priority: 'medium',
-          progress: t.status === 'done' ? 100 : 0,
-          column_order: savedTasks.length + idx,
-          created_by: currentUser.id,
-        }))
-
-        const { data, error } = await supabase
-          .from('tasks')
-          .insert(insertPayload)
-          .select()
-
-        if (error) throw error
-        insertedData = data as Task[]
-
-        for (const t of insertedData) {
-          await supabase.from('activity_logs').insert({
-            actor_id: currentUser.id,
-            action: 'created_task',
-            entity_type: 'task',
-            entity_id: t.id,
-            entity_name: t.title,
-            project_id: project.id,
-            metadata: {},
-          })
-        }
-      }
-
-      // Thực hiện các API calls cập nhật
-      if (tasksToUpdate.length > 0) {
-        for (const t of tasksToUpdate) {
-          const { error } = await supabase
-            .from('tasks')
-            .update({
-              title: t.title.trim(),
-              status: t.status,
-              progress: t.status === 'done' ? 100 : 0,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', t.id)
-
+        // Thực hiện các API calls xóa
+        if (tasksToDelete.length > 0) {
+          const deleteIds = tasksToDelete.map((t) => t.id)
+          const { error } = await supabase.from('tasks').delete().in('id', deleteIds)
           if (error) throw error
 
-          const saved = savedTasks.find((st) => st.id === t.id)
-          if (saved && saved.status !== t.status) {
+          for (const t of tasksToDelete) {
             await supabase.from('activity_logs').insert({
               actor_id: currentUser.id,
-              action: t.status === 'done' ? 'completed_task' : 'moved_task',
+              action: 'deleted_task',
               entity_type: 'task',
               entity_id: t.id,
               entity_name: t.title,
               project_id: project.id,
-              metadata: { new_status: t.status },
+              metadata: {},
             })
           }
         }
+
+        // Thực hiện các API calls thêm mới
+        let insertedData: Task[] = []
+        if (tasksToInsert.length > 0) {
+          const insertPayload = tasksToInsert.map((t, idx) => ({
+            project_id: project.id,
+            title: t.title.trim(),
+            status: t.status,
+            notes: null,
+            priority: 'medium',
+            progress: t.status === 'done' ? 100 : 0,
+            column_order: savedTasks.length + idx,
+            created_by: currentUser.id,
+          }))
+
+          const { data, error } = await supabase
+            .from('tasks')
+            .insert(insertPayload)
+            .select()
+
+          if (error) throw error
+          insertedData = data as Task[]
+
+          for (const t of insertedData) {
+            await supabase.from('activity_logs').insert({
+              actor_id: currentUser.id,
+              action: 'created_task',
+              entity_type: 'task',
+              entity_id: t.id,
+              entity_name: t.title,
+              project_id: project.id,
+              metadata: {},
+            })
+          }
+        }
+
+        // Thực hiện các API calls cập nhật
+        if (tasksToUpdate.length > 0) {
+          for (const t of tasksToUpdate) {
+            const { error } = await supabase
+              .from('tasks')
+              .update({
+                title: t.title.trim(),
+                status: t.status,
+                progress: t.status === 'done' ? 100 : 0,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', t.id)
+
+            if (error) throw error
+
+            const saved = savedTasks.find((st) => st.id === t.id)
+            if (saved && saved.status !== t.status) {
+              await supabase.from('activity_logs').insert({
+                actor_id: currentUser.id,
+                action: t.status === 'done' ? 'completed_task' : 'moved_task',
+                entity_type: 'task',
+                entity_id: t.id,
+                entity_name: t.title,
+                project_id: project.id,
+                metadata: { new_status: t.status },
+              })
+            }
+          }
+        }
+
+        // Cập nhật lại state lưu trữ cục bộ
+        const nextSavedTasks = [
+          ...localTasks.filter((lt) => !lt.id.startsWith('temp-')),
+          ...insertedData,
+        ]
+        setSavedTasks(nextSavedTasks)
+        setLocalTasks(nextSavedTasks)
       }
 
       toast.success('Đã lưu thay đổi thành công!')
 
-      // Cập nhật lại state lưu trữ cục bộ
-      const nextSavedTasks = [
-        ...localTasks.filter((lt) => !lt.id.startsWith('temp-')),
-        ...insertedData,
-      ]
-      setSavedTasks(nextSavedTasks)
-      setLocalTasks(nextSavedTasks)
-
-      // Cập nhật router để render lại các component cha (thanh tiến độ dự án)
+      // Cập nhật router để render lại các component cha (tiến độ dự án & thông tin)
       startTransition(() => {
         router.refresh()
       })
@@ -275,7 +310,7 @@ export function ProjectChecklist({
   return (
     <div className="space-y-6">
       {/* Cảnh báo quyền chỉnh sửa */}
-      {!hasEditPermission && (
+      {!hasEditPermission && !canEditExecutorNotes && !canEditAdminNotes && (
         <div className="glass-card p-4 border-amber-500/20 bg-amber-500/5 flex items-center gap-3 text-amber-400">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-xs">
@@ -365,33 +400,75 @@ export function ProjectChecklist({
         </button>
       )}
 
-      {/* Mục ghi chú chung cho dự án */}
-      <div className="glass-card p-5 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500" />
-        <label
-          htmlFor="project-notes-textarea"
-          className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2.5"
-        >
-          Ghi chú chung cho dự án
-        </label>
-        {hasEditPermission ? (
-          <textarea
-            id="project-notes-textarea"
-            value={projectNotes}
-            onChange={(e) => setProjectNotes(e.target.value)}
-            placeholder="Nhập ghi chú hoặc mô tả chung cho dự án tại đây..."
-            rows={4}
-            className="w-full bg-slate-900/60 border border-slate-800 focus:border-cyan-500/30 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all resize-y leading-relaxed"
-          />
-        ) : (
-          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-            {projectNotes || '(Chưa có ghi chú chung)'}
-          </p>
-        )}
+      {/* Chia đôi cột ghi chú */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+        {/* Cột trái: Người chịu trách nhiệm thực hiện dự án */}
+        <div className="glass-card p-5 relative overflow-hidden flex flex-col min-h-[180px]">
+          <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500" />
+          <div className="flex items-center justify-between mb-3">
+            <label
+              htmlFor="executor-notes-textarea"
+              className="text-xs font-semibold text-slate-300 uppercase tracking-wider block"
+            >
+              Ghi chú của người thực hiện
+            </label>
+            {!canEditExecutorNotes && (
+              <span className="text-[9px] bg-white/5 border border-white/10 text-slate-400 px-1.5 py-0.5 rounded font-bold">
+                Chỉ xem
+              </span>
+            )}
+          </div>
+          {canEditExecutorNotes ? (
+            <textarea
+              id="executor-notes-textarea"
+              value={executorNotes}
+              onChange={(e) => setExecutorNotes(e.target.value)}
+              placeholder="Nhập ghi chú của người thực hiện dự án tại đây..."
+              rows={4}
+              className="w-full flex-grow bg-slate-900/60 border border-slate-800 focus:border-cyan-500/30 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all resize-y leading-relaxed"
+            />
+          ) : (
+            <div className="w-full flex-grow bg-slate-900/20 border border-slate-900/50 rounded-xl p-3 text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">
+              {executorNotes || '(Trống)'}
+            </div>
+          )}
+        </div>
+
+        {/* Cột phải: Admin */}
+        <div className="glass-card p-5 relative overflow-hidden flex flex-col min-h-[180px]">
+          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
+          <div className="flex items-center justify-between mb-3">
+            <label
+              htmlFor="admin-notes-textarea"
+              className="text-xs font-semibold text-slate-300 uppercase tracking-wider block"
+            >
+              Ý kiến / Ghi chú của Admin
+            </label>
+            {!canEditAdminNotes && (
+              <span className="text-[9px] bg-white/5 border border-white/10 text-slate-400 px-1.5 py-0.5 rounded font-bold">
+                Chỉ xem
+              </span>
+            )}
+          </div>
+          {canEditAdminNotes ? (
+            <textarea
+              id="admin-notes-textarea"
+              value={adminNotes}
+              onChange={(e) => setAdminNotes(e.target.value)}
+              placeholder="Nhập ý kiến chỉ đạo hoặc ghi chú của Admin tại đây..."
+              rows={4}
+              className="w-full flex-grow bg-slate-900/60 border border-slate-800 focus:border-amber-500/30 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all resize-y leading-relaxed"
+            />
+          ) : (
+            <div className="w-full flex-grow bg-slate-900/20 border border-slate-900/50 rounded-xl p-3 text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">
+              {adminNotes || '(Trống)'}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Nút lưu thay đổi */}
-      {hasEditPermission && (
+      {canSave && (
         <div className="flex justify-end border-t border-white/10 pt-4">
           <button
             id="checklist-save-btn"
