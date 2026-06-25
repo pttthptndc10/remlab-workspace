@@ -1,13 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { ProjectChecklist } from '@/components/projects/ProjectChecklist'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { formatDate, getInitials, ROLE_LABELS } from '@/lib/utils'
 import type { Project, Task, Profile, ProjectMember, UserRole } from '@/lib/types'
-import { Calendar, Info, Users, LayoutGrid, Pencil, CheckSquare } from 'lucide-react'
+import { Calendar, Info, Users, Pencil, CheckSquare } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ProjectForm } from '@/components/projects/ProjectForm'
 import { DashboardShell } from '@/components/layout/DashboardShell'
@@ -20,7 +19,7 @@ interface ProjectDetailClientProps {
   currentUser: Profile
 }
 
-type Tab = 'checklist' | 'kanban' | 'members' | 'info'
+type Tab = 'checklist' | 'members' | 'info'
 
 export function ProjectDetailClient({
   project,
@@ -40,7 +39,6 @@ export function ProjectDetailClient({
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
-    { id: 'kanban', label: 'Kanban', icon: <LayoutGrid className="w-4 h-4" /> },
     { id: 'members', label: 'Thành viên', icon: <Users className="w-4 h-4" /> },
     { id: 'info', label: 'Thông tin', icon: <Info className="w-4 h-4" /> },
   ]
@@ -104,16 +102,7 @@ export function ProjectDetailClient({
         {activeTab === 'checklist' && (
           <ProjectChecklist
             tasks={tasks}
-            projectId={project.id}
-            currentUser={currentUser}
-            projectMembers={projectMembers}
-          />
-        )}
-
-        {activeTab === 'kanban' && (
-          <KanbanBoard
-            tasks={tasks}
-            projectId={project.id}
+            project={project}
             currentUser={currentUser}
             projectMembers={projectMembers}
           />
