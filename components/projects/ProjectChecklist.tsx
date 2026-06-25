@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useTransition, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Task, Profile, Project, TaskStatus } from '@/lib/types'
@@ -99,6 +99,93 @@ export function ProjectChecklist({
     hasTasksChanged() ||
     (canEditExecutorNotes && hasExecutorNotesChanged) ||
     (canEditAdminNotes && hasAdminNotesChanged)
+
+  // Ref for isDirty to access it in realtime callbacks without resubscribing
+  const isDirtyRef = useRef(isDirty)
+  useEffect(() => {
+    isDirtyRef.current = isDirty
+  }, [isDirty])
+
+  // Refetch tasks and project details from database
+  const refetchData = useCallback(async () => {
+    const [tasksRes, projectRes] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role), creator:profiles!tasks_created_by_fkey(id, full_name)')
+        .eq('project_id', project.id)
+        .order('column_order', { ascending: true }),
+      supabase
+        .from('projects')
+        .select('*')
+        .eq('id', project.id)
+        .single()
+    ])
+
+    return {
+      tasks: (tasksRes.data ?? []) as Task[],
+      project: projectRes.data as Project | null
+    }
+  }, [supabase, project.id])
+
+  // Supabase Realtime subscription for tasks and project updates
+  useEffect(() => {
+    const channelName = `project-realtime-${project.id}`
+    const channel = supabase
+      .channel(channelName)
+      // Listen to any task inserts, updates, deletes
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `project_id=eq.${project.id}`,
+        },
+        async () => {
+          const { tasks: freshTasks } = await refetchData()
+          setSavedTasks(freshTasks)
+          // Only auto-update local list if user doesn't have unsaved edits
+          if (!isDirtyRef.current) {
+            setLocalTasks(freshTasks)
+          } else {
+            toast('🔄 Danh sách công việc đã được người khác cập nhật!', {
+              icon: 'ℹ️',
+              duration: 3000,
+            })
+          }
+        }
+      )
+      // Listen to project notes updates
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'projects',
+          filter: `id=eq.${project.id}`,
+        },
+        async () => {
+          const { project: freshProject } = await refetchData()
+          if (freshProject) {
+            const freshNotes = parseNotes(freshProject.description)
+            if (!isDirtyRef.current) {
+              setExecutorNotes(freshNotes.executor)
+              setAdminNotes(freshNotes.admin)
+            } else {
+              toast('🔄 Ghi chú dự án đã được người khác cập nhật!', {
+                icon: 'ℹ️',
+                duration: 3000,
+              })
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, project.id, refetchData])
 
   // Chia localTasks thành nhóm chưa hoàn thành và đã hoàn thành để hiển thị
   const pendingTasks = localTasks.filter((t) => t.status !== 'done')
