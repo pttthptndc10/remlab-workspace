@@ -16,7 +16,7 @@ export function useTasks(projectId?: string) {
       .from('tasks')
       .select(`
         *,
-        assignee:profiles(id, full_name, avatar_url, role),
+        assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role),
         project:projects(id, name)
       `)
       .order('column_order', { ascending: true })

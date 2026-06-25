@@ -29,7 +29,7 @@ export default async function DashboardPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('tasks')
-      .select('*, assignee:profiles(id, full_name, avatar_url, role)')
+      .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role)')
       .order('created_at', { ascending: false }),
     supabase.from('profiles').select('*').order('full_name'),
     supabase

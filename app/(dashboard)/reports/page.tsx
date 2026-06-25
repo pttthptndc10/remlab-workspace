@@ -16,7 +16,7 @@ export default async function ReportsPage() {
   const [tasksResult, projectsResult, profilesResult] = await Promise.all([
     supabase
       .from('tasks')
-      .select('*, assignee:profiles(id, full_name, avatar_url, role)')
+      .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role)')
       .order('created_at', { ascending: false }),
     supabase.from('projects').select('id, name, status').order('name'),
     supabase.from('profiles').select('id, full_name, role').order('full_name'),

@@ -113,7 +113,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
           updated_at: new Date().toISOString(),
         })
         .eq('id', task.id)
-        .select('*, assignee:profiles(id, full_name, avatar_url, role)')
+        .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role)')
         .single()
 
       if (error) throw error

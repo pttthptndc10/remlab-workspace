@@ -24,7 +24,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
       .single(),
     supabase
       .from('tasks')
-      .select('*, assignee:profiles(id, full_name, avatar_url, role), creator:profiles(id, full_name)')
+      .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role), creator:profiles!tasks_created_by_fkey(id, full_name)')
       .eq('project_id', id)
       .order('column_order', { ascending: true }),
     supabase
