@@ -485,17 +485,17 @@ function TaskChecklistRow({
       <div className="flex items-center gap-3 justify-between sm:justify-end flex-shrink-0">
         <div className="flex-1 sm:flex-initial">
           {hasEditPermission ? (
-            <input
+            <textarea
               id={`checklist-notes-input-${task.id}`}
-              type="text"
               value={task.notes || ''}
               onChange={(e) => onUpdateNotes(task.id, 'notes', e.target.value)}
               placeholder="Thêm ghi chú..."
-              className="w-full sm:w-48 bg-slate-900/60 border border-slate-800 focus:border-cyan-500/30 rounded-lg px-2.5 py-1 text-xs text-slate-300 placeholder-slate-600 outline-none transition-all"
+              rows={1}
+              className="w-full sm:w-64 bg-slate-900/60 border border-slate-800 focus:border-cyan-500/30 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 placeholder-slate-600 outline-none transition-all resize-y min-h-[32px] max-h-[120px] leading-normal"
             />
           ) : (
             task.notes && (
-              <span className="max-w-[200px] truncate bg-slate-900/40 border border-slate-800/40 rounded-lg px-2 py-0.5 text-xs text-slate-400 block">
+              <span className="max-w-[250px] whitespace-pre-wrap break-words bg-slate-900/40 border border-slate-800/40 rounded-lg px-2.5 py-1.5 text-xs text-slate-400 block">
                 {task.notes}
               </span>
             )
