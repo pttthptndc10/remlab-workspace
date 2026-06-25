@@ -58,6 +58,12 @@ export interface ProjectMember {
   project?: Project
 }
 
+export interface ChecklistItem {
+  id: string
+  title: string
+  is_completed: boolean
+}
+
 export interface Task {
   id: string
   project_id: string
@@ -68,6 +74,7 @@ export interface Task {
   status: TaskStatus
   priority: TaskPriority
   progress: number
+  checklist?: ChecklistItem[] | null
   notes: string | null
   attachment_url: string | null
   column_order: number

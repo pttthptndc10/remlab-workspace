@@ -34,6 +34,12 @@ export function ProjectDetailClient({
   const isAdminOrLeader = currentUser.role === 'admin' || currentUser.role === 'leader'
   const completedTasks = tasks.filter((t) => t.status === 'done').length
   const completionPct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0
+  const projectMembers = members.map((m) => {
+    console.log('Mapping member item:', m);
+    return m.member;
+  }).filter((m): m is Profile => !!m);
+  console.log('ProjectDetailClient members:', members);
+  console.log('ProjectDetailClient projectMembers:', projectMembers);
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'kanban', label: 'Kanban', icon: <LayoutGrid className="w-4 h-4" /> },
@@ -102,6 +108,7 @@ export function ProjectDetailClient({
             tasks={tasks}
             projectId={project.id}
             currentUser={currentUser}
+            projectMembers={projectMembers}
           />
         )}
 

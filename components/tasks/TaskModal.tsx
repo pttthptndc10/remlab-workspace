@@ -8,8 +8,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { formatDate, isOverdue, getInitials, TASK_STATUS_LABELS, PRIORITY_LABELS } from '@/lib/utils'
-import type { Task, Profile, TaskStatus, TaskPriority, UserRole } from '@/lib/types'
-import { Calendar, Link2, FileText, Trash2, Save, X } from 'lucide-react'
+import type { Task, Profile, TaskStatus, TaskPriority, UserRole, ChecklistItem } from '@/lib/types'
+import { Calendar, Link2, FileText, Trash2, Save, X, Plus } from 'lucide-react'
 
 interface TaskModalProps {
   task: Task
@@ -43,6 +43,50 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
     attachment_url: task.attachment_url ?? '',
   })
 
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(
+    task.checklist && Array.isArray(task.checklist) ? task.checklist : []
+  )
+  const [newStepTitle, setNewStepTitle] = useState('')
+
+  const calculateProgress = (items: ChecklistItem[]) => {
+    if (items.length === 0) return 0
+    const completed = items.filter((item) => item.is_completed).length
+    return Math.round((completed / items.length) * 100)
+  }
+
+  const updateChecklist = (newChecklist: ChecklistItem[]) => {
+    setChecklist(newChecklist)
+    const newProgress = calculateProgress(newChecklist)
+    setForm((p) => ({ ...p, progress: newProgress }))
+  }
+
+  const handleToggleStep = (id: string) => {
+    if (!canEdit) return
+    const updated = checklist.map((item) =>
+      item.id === id ? { ...item, is_completed: !item.is_completed } : item
+    )
+    updateChecklist(updated)
+  }
+
+  const handleAddStep = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!canEdit || !newStepTitle.trim()) return
+    const newItem: ChecklistItem = {
+      id: typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      title: newStepTitle.trim(),
+      is_completed: false,
+    }
+    const updated = [...checklist, newItem]
+    updateChecklist(updated)
+    setNewStepTitle('')
+  }
+
+  const handleDeleteStep = (id: string) => {
+    if (!canEdit) return
+    const updated = checklist.filter((item) => item.id !== id)
+    updateChecklist(updated)
+  }
+
   const taskStatuses: TaskStatus[] = ['todo', 'doing', 'review', 'done', 'blocked']
   const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical']
 
@@ -61,6 +105,7 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
           status: form.status,
           priority: form.priority,
           progress: form.progress,
+          checklist: checklist,
           notes: form.notes.trim() || null,
           deadline: form.deadline || null,
           assignee_id: form.assignee_id || null,
@@ -213,26 +258,87 @@ export function TaskModal({ task, onClose, onUpdate, currentUser, projectMembers
           </div>
         </div>
 
-        {/* Progress Slider */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label htmlFor="task-modal-progress" className="text-xs font-medium text-slate-400">
-              {canEdit ? 'Tiến độ (Kéo thanh trượt màu xanh bên dưới để thay đổi)' : 'Tiến độ'}
+        {/* Checklist Steps (Từng bước thực hiện công việc) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              Các bước thực hiện công việc ({checklist.filter(c => c.is_completed).length}/{checklist.length})
             </label>
-            <span className="text-sm font-bold text-cyan-400">{form.progress}%</span>
+            <span className="text-sm font-bold text-cyan-400">{form.progress}% hoàn thành</span>
           </div>
-          <input
-            id="task-modal-progress"
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={form.progress}
-            onChange={(e) => setForm((p) => ({ ...p, progress: Number(e.target.value) }))}
-            className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-cyan-400 [&::-moz-range-thumb]:border-0"
-            disabled={!canEdit}
-          />
-          <ProgressBar value={form.progress} size="sm" className="mt-2" />
+
+          {/* Checklist steps progress bar */}
+          <ProgressBar value={form.progress} size="sm" className="w-full" />
+
+          {/* List of Steps */}
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {checklist.length === 0 ? (
+              <p className="text-xs text-slate-500 italic py-2 text-center">
+                Chưa có bước thực hiện nào được thêm.
+              </p>
+            ) : (
+              checklist.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 hover:border-cyan-500/20 hover:bg-white/10 transition-all group"
+                >
+                  <label className="flex items-center gap-3 flex-1 cursor-pointer select-none py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={item.is_completed}
+                      onChange={() => handleToggleStep(item.id)}
+                      disabled={!canEdit}
+                      className="w-4.5 h-4.5 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/50 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <span
+                      className={`text-sm text-slate-200 transition-all ${
+                        item.is_completed ? 'line-through text-slate-500' : ''
+                      }`}
+                    >
+                      {item.title}
+                    </span>
+                  </label>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStep(item.id)}
+                      className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-white/5 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      title="Xóa bước này"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add Step Form */}
+          {canEdit && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newStepTitle}
+                onChange={(e) => setNewStepTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddStep()
+                  }
+                }}
+                placeholder="Thêm bước công việc tiếp theo..."
+                className="input-dark flex-1 text-sm py-1.5"
+              />
+              <button
+                type="button"
+                onClick={handleAddStep}
+                className="btn-primary py-1.5 px-3 flex items-center gap-1 text-sm font-medium"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Thêm
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Description */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -34,6 +34,7 @@ interface KanbanBoardProps {
   tasks: Task[]
   projectId: string
   currentUser: Profile
+  projectMembers: Profile[]
   onTaskUpdate?: (task: Task) => void
 }
 
@@ -49,18 +50,20 @@ function buildColumns(tasks: Task[]): KanbanColumnType[] {
   }))
 }
 
-export function KanbanBoard({ tasks: initialTasks, projectId, currentUser, onTaskUpdate }: KanbanBoardProps) {
+export function KanbanBoard({ tasks: initialTasks, projectId, currentUser, projectMembers, onTaskUpdate }: KanbanBoardProps) {
   const router = useRouter()
   const supabase = createClient()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [showAddTask, setShowAddTask] = useState(false)
 
+  useEffect(() => {
+    setTasks(initialTasks)
+  }, [initialTasks])
+
+  console.log('KanbanBoard projectMembers:', projectMembers);
+
   const columns = buildColumns(tasks)
-  const projectMembers: Profile[] = tasks
-    .map((t) => t.assignee)
-    .filter((a): a is Profile => !!a)
-    .filter((a, i, arr) => arr.findIndex((x) => x.id === a.id) === i)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
