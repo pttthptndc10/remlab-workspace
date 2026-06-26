@@ -95,6 +95,7 @@ export default function ChatPage() {
           .limit(100)
 
         if (error) throw error
+        console.log("FETCHED MESSAGES:", data)
         setMessages(data as ChatMessage[])
       } catch (err: any) {
         console.error('Lỗi tải tin nhắn:', err)
