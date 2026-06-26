@@ -13,16 +13,19 @@ interface ProjectChecklistProps {
   project: Project
   currentUser: Profile
   projectMembers: Profile[]
+  allProfiles: Profile[]
   onSaveSuccess?: (tasks: Task[], project: Project) => void
 }
 
 const DIVIDER = '<!--admin-notes-divider-->'
+const NOTE_DIVIDER = '|notes-divider|'
 
 export function ProjectChecklist({
   tasks: initialTasks,
   project,
   currentUser,
   projectMembers,
+  allProfiles,
   onSaveSuccess,
 }: ProjectChecklistProps) {
   const router = useRouter()
@@ -76,6 +79,7 @@ export function ProjectChecklist({
       if (local.start_date !== saved.start_date) return true
       if (local.deadline !== saved.deadline) return true
       if (local.status !== saved.status) return true
+      if (local.assignee_id !== saved.assignee_id) return true
     }
 
     for (const saved of savedTasks) {
@@ -123,7 +127,7 @@ export function ProjectChecklist({
     }
   }, [project.description])
 
-  // Phân chia localTasks thành 3 mục: Cần làm (todo, doing, review, blocked), Đã hủy (cancelled) và Đã hoàn thành (done)
+  // Phân chia localTasks thành 3 mục: Cần làm, Đã hủy và Đã hoàn thành
   const pendingTasks = localTasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
   const cancelledTasks = localTasks.filter((t) => t.status === 'cancelled')
   const completedTasks = localTasks.filter((t) => t.status === 'done')
@@ -157,7 +161,11 @@ export function ProjectChecklist({
   }
 
   // Cập nhật trường thông tin của task trong local state
-  const handleUpdateField = (id: string, field: 'title' | 'notes' | 'start_date' | 'deadline', value: string | null) => {
+  const handleUpdateField = (
+    id: string,
+    field: 'title' | 'notes' | 'start_date' | 'deadline' | 'assignee_id',
+    value: string | null
+  ) => {
     setLocalTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, [field]: value } : t))
     )
@@ -242,7 +250,8 @@ export function ProjectChecklist({
             lt.status !== saved.status ||
             (lt.notes || '') !== (saved.notes || '') ||
             lt.start_date !== saved.start_date ||
-            lt.deadline !== saved.deadline
+            lt.deadline !== saved.deadline ||
+            lt.assignee_id !== saved.assignee_id
           )
         })
 
@@ -271,6 +280,7 @@ export function ProjectChecklist({
             project_id: project.id,
             title: t.title.trim(),
             status: t.status,
+            assignee_id: t.assignee_id,
             notes: t.notes ? t.notes.trim() : null,
             start_date: t.start_date,
             deadline: t.deadline,
@@ -309,6 +319,7 @@ export function ProjectChecklist({
               .update({
                 title: t.title.trim(),
                 status: t.status,
+                assignee_id: t.assignee_id,
                 notes: t.notes ? t.notes.trim() : null,
                 start_date: t.start_date,
                 deadline: t.deadline,
@@ -405,6 +416,7 @@ export function ProjectChecklist({
               task={task}
               projectName={project.name}
               hasEditPermission={hasEditPermission}
+              allProfiles={allProfiles}
               onToggle={handleToggleStatus}
               onToggleCancel={handleToggleCancel}
               onUpdateField={handleUpdateField}
@@ -437,6 +449,7 @@ export function ProjectChecklist({
               task={task}
               projectName={project.name}
               hasEditPermission={hasEditPermission}
+              allProfiles={allProfiles}
               onToggle={handleToggleStatus}
               onToggleCancel={handleToggleCancel}
               onUpdateField={handleUpdateField}
@@ -469,6 +482,7 @@ export function ProjectChecklist({
               task={task}
               projectName={project.name}
               hasEditPermission={hasEditPermission}
+              allProfiles={allProfiles}
               onToggle={handleToggleStatus}
               onToggleCancel={handleToggleCancel}
               onUpdateField={handleUpdateField}
@@ -495,9 +509,8 @@ export function ProjectChecklist({
         </button>
       )}
 
-      {/* Ghi chú */}
+      {/* Ghi chú dự án */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
-        {/* Cột trái: Người chịu trách nhiệm thực hiện dự án */}
         <div className="glass-card p-5 relative overflow-hidden flex flex-col min-h-[180px]">
           <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500" />
           <div className="flex items-center justify-between mb-3">
@@ -529,7 +542,6 @@ export function ProjectChecklist({
           )}
         </div>
 
-        {/* Cột phải: Admin */}
         <div className="glass-card p-5 relative overflow-hidden flex flex-col min-h-[180px]">
           <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
           <div className="flex items-center justify-between mb-3">
@@ -562,7 +574,7 @@ export function ProjectChecklist({
         </div>
       </div>
 
-      {/* Nút lưu thay đổi */}
+      {/* Nút lưu */}
       {canSave && (
         <div className="flex justify-end border-t border-white/10 pt-4">
           <button
@@ -591,9 +603,14 @@ interface TaskChecklistRowProps {
   task: Task
   projectName: string
   hasEditPermission: boolean
+  allProfiles: Profile[]
   onToggle: (id: string) => void
   onToggleCancel: (id: string) => void
-  onUpdateField: (id: string, field: 'title' | 'notes' | 'start_date' | 'deadline', value: string | null) => void
+  onUpdateField: (
+    id: string,
+    field: 'title' | 'notes' | 'start_date' | 'deadline' | 'assignee_id',
+    value: string | null
+  ) => void
   onDelete: (id: string) => void
 }
 
@@ -601,6 +618,7 @@ function TaskChecklistRow({
   task,
   projectName,
   hasEditPermission,
+  allProfiles,
   onToggle,
   onToggleCancel,
   onUpdateField,
@@ -608,6 +626,9 @@ function TaskChecklistRow({
 }: TaskChecklistRowProps) {
   const isDone = task.status === 'done'
   const isCancelled = task.status === 'cancelled'
+
+  // Parse notes to array of string split by '|notes-divider|'
+  const noteLines = task.notes ? task.notes.split(NOTE_DIVIDER) : ['']
 
   return (
     <li
@@ -707,28 +728,92 @@ function TaskChecklistRow({
         </div>
       </div>
 
-      {/* Details: Notes, Start Date, End Date */}
-      <div className="pl-8 flex flex-col md:flex-row gap-4 mt-2 border-l border-white/5 pb-1">
-        {/* Notes */}
-        <div className="flex-1">
-          {hasEditPermission ? (
-            <input
-              type="text"
-              value={task.notes || ''}
-              disabled={isCancelled || isDone}
-              onChange={(e) => onUpdateField(task.id, 'notes', e.target.value)}
-              placeholder="Ghi chú thêm cho công việc này..."
-              className="w-full bg-transparent border-b border-white/5 focus:border-cyan-500/20 outline-none text-xs text-slate-400 py-1 transition-all placeholder-slate-600 disabled:opacity-60"
-            />
-          ) : (
-            <p className="text-xs text-slate-400 italic truncate">
-              {task.notes ? `Ghi chú: ${task.notes}` : 'Không có ghi chú'}
-            </p>
-          )}
+      {/* Details: Notes List, Start Date, End Date, Assignee Dropdown */}
+      <div className="pl-8 flex flex-col gap-3 mt-2 border-l border-white/5 pb-1">
+        {/* Notes (Multi-row with + icon to add new note row) */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-500 font-medium">Ghi chú công việc:</span>
+            {hasEditPermission && !isCancelled && !isDone && (
+              <button
+                type="button"
+                onClick={() => {
+                  const newNotes = [...noteLines, '']
+                  onUpdateField(task.id, 'notes', newNotes.join(NOTE_DIVIDER))
+                }}
+                className="text-cyan-400 hover:text-cyan-300 text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer hover:underline"
+              >
+                <Plus size={11} /> Thêm dòng ghi chú
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            {noteLines.map((note, index) => (
+              <div key={index} className="flex items-center gap-2">
+                {hasEditPermission ? (
+                  <input
+                    type="text"
+                    value={note}
+                    disabled={isCancelled || isDone}
+                    onChange={(e) => {
+                      const newLines = [...noteLines]
+                      newLines[index] = e.target.value
+                      onUpdateField(task.id, 'notes', newLines.join(NOTE_DIVIDER))
+                    }}
+                    placeholder="Ghi chú thêm cho công việc..."
+                    className="flex-grow bg-transparent border-b border-white/5 focus:border-cyan-500/20 outline-none text-xs text-slate-400 py-0.5 transition-all placeholder-slate-600 disabled:opacity-60"
+                  />
+                ) : (
+                  <p className="text-xs text-slate-400 italic flex-grow">
+                    • {note || '(Ghi chú trống)'}
+                  </p>
+                )}
+
+                {hasEditPermission && !isCancelled && !isDone && noteLines.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newLines = noteLines.filter((_, idx) => idx !== index)
+                      onUpdateField(task.id, 'notes', newLines.join(NOTE_DIVIDER))
+                    }}
+                    className="text-slate-600 hover:text-rose-400 p-0.5 rounded cursor-pointer"
+                    title="Xóa dòng ghi chú này"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Start and End Dates */}
-        <div className="flex flex-wrap gap-4 items-center">
+        {/* Date pickers & Assignee Selector */}
+        <div className="flex flex-wrap gap-4 items-center pt-1">
+          {/* Assignee selector dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500">Chỉ định:</span>
+            {hasEditPermission ? (
+              <select
+                value={task.assignee_id || ''}
+                disabled={isCancelled || isDone}
+                onChange={(e) => onUpdateField(task.id, 'assignee_id', e.target.value || null)}
+                className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-slate-300 outline-none focus:border-cyan-500/30 disabled:opacity-60 cursor-pointer"
+              >
+                <option value="">-- Chưa chỉ định --</option>
+                {allProfiles.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name} ({p.role === 'admin' ? 'Admin' : p.role === 'leader' ? 'Leader' : 'Member'})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-[11px] text-slate-300">
+                {allProfiles.find(p => p.id === task.assignee_id)?.full_name || 'Chưa chỉ định'}
+              </span>
+            )}
+          </div>
+
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-slate-500">Bắt đầu:</span>
             {hasEditPermission ? (

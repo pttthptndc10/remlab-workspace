@@ -184,6 +184,7 @@ export function ProjectDetailClient({
             project={projectState}
             currentUser={currentUser}
             projectMembers={projectMembers}
+            allProfiles={allProfiles}
             onSaveSuccess={(updatedTasks, updatedProject) => {
               setTasksState(updatedTasks)
               setProjectState(updatedProject)
@@ -196,8 +197,9 @@ export function ProjectDetailClient({
             {members.map((pm) => {
               const memberTasks = tasksState.filter((t) => t.assignee_id === pm.member_id)
               const memberDone = memberTasks.filter((t) => t.status === 'done').length
-              const memberProgress = memberTasks.length > 0
-                ? Math.round((memberDone / memberTasks.length) * 100)
+              const totalProjectTasks = tasksState.length
+              const memberProgress = totalProjectTasks > 0
+                ? Math.round((memberDone / totalProjectTasks) * 100)
                 : 0
               return (
                 <a
@@ -216,7 +218,7 @@ export function ProjectDetailClient({
                     </div>
                   </div>
                   <div className="text-xs text-slate-400 mb-2">
-                    {memberDone}/{memberTasks.length} tasks hoàn thành
+                    {memberDone}/{totalProjectTasks} tasks hoàn thành
                   </div>
                   <ProgressBar value={memberProgress} size="sm" />
                 </a>
