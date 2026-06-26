@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import {
   LayoutDashboard, FolderKanban, CheckSquare,
   Users, Activity, BarChart2, Settings,
-  Zap, LogOut, ChevronRight, X, Shield
+  Zap, LogOut, ChevronRight, X, Shield, MessageSquare
 } from 'lucide-react'
 import { getInitials, ROLE_LABELS, ROLE_COLORS } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -16,6 +16,7 @@ const navItems = [
   { href: '/projects', label: 'Dự án', icon: FolderKanban },
   { href: '/tasks', label: 'Công việc', icon: CheckSquare },
   { href: '/members', label: 'Thành viên', icon: Users },
+  { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
   { href: '/activity', label: 'Hoạt động', icon: Activity },
   { href: '/reports', label: 'Báo cáo', icon: BarChart2 },
 ]
