@@ -28,6 +28,7 @@ const COLUMN_COLORS: Record<TaskStatus, string> = {
   review: '#f59e0b',
   done: '#10b981',
   blocked: '#ef4444',
+  cancelled: '#b91c1c',
 }
 
 interface KanbanBoardProps {

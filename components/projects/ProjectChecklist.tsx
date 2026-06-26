@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useTransition, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Task, Profile, Project, TaskStatus } from '@/lib/types'
+import type { Task, Profile, Project } from '@/lib/types'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface ProjectChecklistProps {
   tasks: Task[]
@@ -71,10 +72,10 @@ export function ProjectChecklist({
       if (!saved) return true // Task mới
 
       if (local.title !== saved.title) return true
-
-      const localCompleted = local.status === 'done'
-      const savedCompleted = saved.status === 'done'
-      if (localCompleted !== savedCompleted) return true
+      if ((local.notes || '') !== (saved.notes || '')) return true
+      if (local.start_date !== saved.start_date) return true
+      if (local.deadline !== saved.deadline) return true
+      if (local.status !== saved.status) return true
     }
 
     for (const saved of savedTasks) {
@@ -122,8 +123,9 @@ export function ProjectChecklist({
     }
   }, [project.description])
 
-  // Chia localTasks thành nhóm chưa hoàn thành và đã hoàn thành để hiển thị
-  const pendingTasks = localTasks.filter((t) => t.status !== 'done')
+  // Phân chia localTasks thành 3 mục: Cần làm (todo, doing, review, blocked), Đã hủy (cancelled) và Đã hoàn thành (done)
+  const pendingTasks = localTasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
+  const cancelledTasks = localTasks.filter((t) => t.status === 'cancelled')
   const completedTasks = localTasks.filter((t) => t.status === 'done')
 
   // Thêm task mới vào local state
@@ -137,6 +139,7 @@ export function ProjectChecklist({
       title: '',
       description: null,
       assignee_id: null,
+      start_date: null,
       deadline: null,
       status: 'todo',
       priority: 'medium',
@@ -154,18 +157,29 @@ export function ProjectChecklist({
   }
 
   // Cập nhật trường thông tin của task trong local state
-  const handleUpdateField = (id: string, field: 'title', value: string) => {
+  const handleUpdateField = (id: string, field: 'title' | 'notes' | 'start_date' | 'deadline', value: string | null) => {
     setLocalTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, [field]: value } : t))
     )
   }
 
-  // Toggle status của task trong local state
+  // Toggle status của task trong local state (giữa done và todo)
   const handleToggleStatus = (id: string) => {
     setLocalTasks((prev) =>
       prev.map((t) =>
         t.id === id
           ? { ...t, status: t.status === 'done' ? 'todo' : 'done' }
+          : t
+      )
+    )
+  }
+
+  // Toggle status hủy của task
+  const handleToggleCancel = (id: string) => {
+    setLocalTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, status: t.status === 'cancelled' ? 'todo' : 'cancelled' }
           : t
       )
     )
@@ -223,7 +237,13 @@ export function ProjectChecklist({
           if (lt.id.startsWith('temp-')) return false
           const saved = savedTasks.find((st) => st.id === lt.id)
           if (!saved) return false
-          return lt.title !== saved.title || lt.status !== saved.status
+          return (
+            lt.title !== saved.title ||
+            lt.status !== saved.status ||
+            (lt.notes || '') !== (saved.notes || '') ||
+            lt.start_date !== saved.start_date ||
+            lt.deadline !== saved.deadline
+          )
         })
 
         // Thực hiện các API calls xóa
@@ -251,7 +271,9 @@ export function ProjectChecklist({
             project_id: project.id,
             title: t.title.trim(),
             status: t.status,
-            notes: null,
+            notes: t.notes ? t.notes.trim() : null,
+            start_date: t.start_date,
+            deadline: t.deadline,
             priority: 'medium',
             progress: t.status === 'done' ? 100 : 0,
             column_order: savedTasks.length + idx,
@@ -287,6 +309,9 @@ export function ProjectChecklist({
               .update({
                 title: t.title.trim(),
                 status: t.status,
+                notes: t.notes ? t.notes.trim() : null,
+                start_date: t.start_date,
+                deadline: t.deadline,
                 progress: t.status === 'done' ? 100 : 0,
                 updated_at: new Date().toISOString(),
               })
@@ -298,7 +323,7 @@ export function ProjectChecklist({
             if (saved && saved.status !== t.status) {
               await supabase.from('activity_logs').insert({
                 actor_id: currentUser.id,
-                action: t.status === 'done' ? 'completed_task' : 'moved_task',
+                action: t.status === 'done' ? 'completed_task' : t.status === 'cancelled' ? 'cancelled_task' : 'moved_task',
                 entity_type: 'task',
                 entity_id: t.id,
                 entity_name: t.title,
@@ -381,13 +406,46 @@ export function ProjectChecklist({
               projectName={project.name}
               hasEditPermission={hasEditPermission}
               onToggle={handleToggleStatus}
-              onUpdateTitle={handleUpdateField}
+              onToggleCancel={handleToggleCancel}
+              onUpdateField={handleUpdateField}
               onDelete={handleDeleteLocal}
             />
           ))}
           {pendingTasks.length === 0 && (
             <li className="px-5 py-6 text-center text-xs text-slate-500">
               Không có công việc nào cần làm.
+            </li>
+          )}
+        </ul>
+      </div>
+
+      {/* Danh sách đã hủy */}
+      <div className="glass-card overflow-hidden opacity-90">
+        <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.01]">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-lg shadow-rose-500/50" />
+            <span className="text-sm font-semibold text-slate-300">
+              Đã hủy / Tạm dừng ({cancelledTasks.length})
+            </span>
+          </div>
+        </div>
+
+        <ul className="divide-y divide-white/5 bg-slate-950/20">
+          {cancelledTasks.map((task) => (
+            <TaskChecklistRow
+              key={task.id}
+              task={task}
+              projectName={project.name}
+              hasEditPermission={hasEditPermission}
+              onToggle={handleToggleStatus}
+              onToggleCancel={handleToggleCancel}
+              onUpdateField={handleUpdateField}
+              onDelete={handleDeleteLocal}
+            />
+          ))}
+          {cancelledTasks.length === 0 && (
+            <li className="px-5 py-6 text-center text-xs text-slate-500">
+              Không có công việc nào bị hủy / tạm dừng.
             </li>
           )}
         </ul>
@@ -412,7 +470,8 @@ export function ProjectChecklist({
               projectName={project.name}
               hasEditPermission={hasEditPermission}
               onToggle={handleToggleStatus}
-              onUpdateTitle={handleUpdateField}
+              onToggleCancel={handleToggleCancel}
+              onUpdateField={handleUpdateField}
               onDelete={handleDeleteLocal}
             />
           ))}
@@ -436,7 +495,7 @@ export function ProjectChecklist({
         </button>
       )}
 
-      {/* Chia đôi cột ghi chú */}
+      {/* Ghi chú */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
         {/* Cột trái: Người chịu trách nhiệm thực hiện dự án */}
         <div className="glass-card p-5 relative overflow-hidden flex flex-col min-h-[180px]">
@@ -533,7 +592,8 @@ interface TaskChecklistRowProps {
   projectName: string
   hasEditPermission: boolean
   onToggle: (id: string) => void
-  onUpdateTitle: (id: string, field: 'title', value: string) => void
+  onToggleCancel: (id: string) => void
+  onUpdateField: (id: string, field: 'title' | 'notes' | 'start_date' | 'deadline', value: string | null) => void
   onDelete: (id: string) => void
 }
 
@@ -542,84 +602,168 @@ function TaskChecklistRow({
   projectName,
   hasEditPermission,
   onToggle,
-  onUpdateTitle,
+  onToggleCancel,
+  onUpdateField,
   onDelete,
 }: TaskChecklistRowProps) {
   const isDone = task.status === 'done'
+  const isCancelled = task.status === 'cancelled'
 
   return (
     <li
       id={`checklist-task-${task.id}`}
-      className={`flex items-center gap-3 px-5 py-3 transition-colors hover:bg-white/[0.02] ${
+      className={`flex flex-col gap-2 px-5 py-4 transition-colors hover:bg-white/[0.02] ${
         isDone ? 'opacity-70 bg-white/[0.005]' : ''
-      }`}
+      } ${isCancelled ? 'opacity-80 bg-red-950/[0.02]' : ''}`}
     >
-      {/* Checkbox */}
-      <button
-        type="button"
-        id={`checklist-toggle-${task.id}`}
-        onClick={() => hasEditPermission && onToggle(task.id)}
-        disabled={!hasEditPermission}
-        className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-          isDone
-            ? 'bg-cyan-500 border-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
-            : 'border-slate-600 hover:border-cyan-400/80 bg-slate-900/50'
-        } ${!hasEditPermission ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-        title={isDone ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
-      >
-        {isDone && (
-          <svg
-            className="w-3.5 h-3.5 stroke-[3px]"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </button>
-
-      {/* Project Name Badge */}
-      <span className="text-[9px] uppercase tracking-wider font-bold bg-cyan-950/60 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-md select-none flex-shrink-0">
-        {projectName}
-      </span>
-
-      {/* Task Title Input or Static View */}
-      <div className="flex-1 min-w-0">
-        {hasEditPermission ? (
-          <input
-            id={`checklist-title-input-${task.id}`}
-            type="text"
-            value={task.title}
-            onChange={(e) => onUpdateTitle(task.id, 'title', e.target.value)}
-            placeholder="Nhập tên công việc..."
-            className={`w-full bg-transparent border-b border-transparent focus:border-cyan-500/30 outline-none text-sm text-white py-1 transition-all ${
-              isDone ? 'line-through text-slate-500' : ''
-            }`}
-          />
-        ) : (
-          <p
-            className={`text-sm font-medium truncate ${
-              isDone ? 'line-through text-slate-500' : 'text-slate-200'
-            }`}
-          >
-            {task.title || '(Trống)'}
-          </p>
-        )}
-      </div>
-
-      {/* Nút xóa */}
-      {hasEditPermission && (
+      <div className="flex items-center gap-3">
+        {/* Checkbox (Complete/Incomplete) */}
         <button
           type="button"
-          id={`checklist-delete-${task.id}`}
-          onClick={() => onDelete(task.id)}
-          className="text-slate-600 hover:text-red-400 hover:bg-red-500/10 p-1.5 rounded-lg transition-all flex-shrink-0"
-          title="Xóa công việc này"
+          id={`checklist-toggle-${task.id}`}
+          onClick={() => hasEditPermission && !isCancelled && onToggle(task.id)}
+          disabled={!hasEditPermission || isCancelled}
+          className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+            isDone
+              ? 'bg-cyan-500 border-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+              : 'border-slate-600 hover:border-cyan-400/80 bg-slate-900/50'
+          } ${(!hasEditPermission || isCancelled) ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
+          title={isCancelled ? 'Công việc đã hủy không thể hoàn thành' : isDone ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
         >
-          <Trash2 className="w-4 h-4" />
+          {isDone && (
+            <svg
+              className="w-3.5 h-3.5 stroke-[3px]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
         </button>
-      )}
+
+        {/* Project Name Badge */}
+        <span className="text-[9px] uppercase tracking-wider font-bold bg-cyan-950/60 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-md select-none flex-shrink-0">
+          {projectName}
+        </span>
+
+        {/* Task Title Input */}
+        <div className="flex-1 min-w-0">
+          {hasEditPermission ? (
+            <input
+              id={`checklist-title-input-${task.id}`}
+              type="text"
+              value={task.title}
+              onChange={(e) => onUpdateField(task.id, 'title', e.target.value)}
+              placeholder="Nhập tên công việc..."
+              disabled={isCancelled || isDone}
+              className={`w-full bg-transparent border-b border-transparent focus:border-cyan-500/30 outline-none text-sm text-white py-0.5 transition-all ${
+                isDone ? 'line-through text-slate-500' : ''
+              } ${isCancelled ? 'line-through text-red-400/70' : ''} ${(isCancelled || isDone) ? 'opacity-85' : ''}`}
+            />
+          ) : (
+            <p
+              className={`text-sm font-medium truncate ${
+                isDone ? 'line-through text-slate-500' : ''
+              } ${isCancelled ? 'line-through text-red-400/70' : 'text-slate-200'}`}
+            >
+              {task.title || '(Trống)'}
+            </p>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Nút Hủy */}
+          {hasEditPermission && (
+            <button
+              type="button"
+              id={`checklist-cancel-${task.id}`}
+              onClick={() => onToggleCancel(task.id)}
+              className={cn(
+                'px-2 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1 active:scale-[0.97] cursor-pointer',
+                isCancelled
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30'
+                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-500/20'
+              )}
+              title={isCancelled ? 'Khôi phục công việc' : 'Hủy công việc'}
+            >
+              {isCancelled ? 'Khôi phục' : 'Hủy bỏ'}
+            </button>
+          )}
+
+          {/* Nút xóa */}
+          {hasEditPermission && (
+            <button
+              type="button"
+              id={`checklist-delete-${task.id}`}
+              onClick={() => onDelete(task.id)}
+              className="text-slate-600 hover:text-red-400 hover:bg-red-500/10 p-1.5 rounded-lg transition-all cursor-pointer"
+              title="Xóa công việc"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Details: Notes, Start Date, End Date */}
+      <div className="pl-8 flex flex-col md:flex-row gap-4 mt-2 border-l border-white/5 pb-1">
+        {/* Notes */}
+        <div className="flex-1">
+          {hasEditPermission ? (
+            <input
+              type="text"
+              value={task.notes || ''}
+              disabled={isCancelled || isDone}
+              onChange={(e) => onUpdateField(task.id, 'notes', e.target.value)}
+              placeholder="Ghi chú thêm cho công việc này..."
+              className="w-full bg-transparent border-b border-white/5 focus:border-cyan-500/20 outline-none text-xs text-slate-400 py-1 transition-all placeholder-slate-600 disabled:opacity-60"
+            />
+          ) : (
+            <p className="text-xs text-slate-400 italic truncate">
+              {task.notes ? `Ghi chú: ${task.notes}` : 'Không có ghi chú'}
+            </p>
+          )}
+        </div>
+
+        {/* Start and End Dates */}
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500">Bắt đầu:</span>
+            {hasEditPermission ? (
+              <input
+                type="date"
+                value={task.start_date ? task.start_date.substring(0, 10) : ''}
+                disabled={isCancelled || isDone}
+                onChange={(e) => onUpdateField(task.id, 'start_date', e.target.value || null)}
+                className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-slate-300 outline-none focus:border-cyan-500/30 disabled:opacity-60 cursor-pointer"
+              />
+            ) : (
+              <span className="text-[11px] text-slate-300">
+                {task.start_date ? task.start_date.substring(0, 10) : 'Chưa đặt'}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500">Kết thúc:</span>
+            {hasEditPermission ? (
+              <input
+                type="date"
+                value={task.deadline ? task.deadline.substring(0, 10) : ''}
+                disabled={isCancelled || isDone}
+                onChange={(e) => onUpdateField(task.id, 'deadline', e.target.value || null)}
+                className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-slate-300 outline-none focus:border-cyan-500/30 disabled:opacity-60 cursor-pointer"
+              />
+            ) : (
+              <span className="text-[11px] text-slate-300">
+                {task.deadline ? task.deadline.substring(0, 10) : 'Chưa đặt'}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
     </li>
   )
 }

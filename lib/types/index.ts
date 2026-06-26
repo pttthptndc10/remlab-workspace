@@ -8,7 +8,7 @@ export type ProjectStatus = 'planning' | 'in_progress' | 'review' | 'completed' 
 
 export type ProjectPriority = 'low' | 'medium' | 'high' | 'critical'
 
-export type TaskStatus = 'todo' | 'doing' | 'review' | 'done' | 'blocked'
+export type TaskStatus = 'todo' | 'doing' | 'review' | 'done' | 'blocked' | 'cancelled'
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 
@@ -72,6 +72,7 @@ export interface Task {
   title: string
   description: string | null
   assignee_id: string | null
+  start_date: string | null
   deadline: string | null
   status: TaskStatus
   priority: TaskPriority

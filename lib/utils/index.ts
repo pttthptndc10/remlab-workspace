@@ -61,6 +61,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   review: 'Đang review',
   done: 'Hoàn thành',
   blocked: 'Bị chặn',
+  cancelled: 'Đã hủy',
 }
 
 export const PRIORITY_LABELS: Record<ProjectPriority | TaskPriority, string> = {
@@ -90,6 +91,7 @@ export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
   review: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
   done: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
   blocked: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+  cancelled: 'bg-red-500/20 text-red-300 border-red-500/30',
 }
 
 export const PRIORITY_COLORS: Record<ProjectPriority | TaskPriority, string> = {

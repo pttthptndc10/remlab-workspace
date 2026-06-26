@@ -22,10 +22,11 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   review: '#f59e0b',
   done: '#10b981',
   blocked: '#ef4444',
+  cancelled: '#b91c1c',
 }
 
 export function ProgressChart({ tasks }: ProgressChartProps) {
-  const statuses: TaskStatus[] = ['todo', 'doing', 'review', 'done', 'blocked']
+  const statuses: TaskStatus[] = ['todo', 'doing', 'review', 'done', 'blocked', 'cancelled']
 
   const data = statuses.map((status) => ({
     name: TASK_STATUS_LABELS[status],
