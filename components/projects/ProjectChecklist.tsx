@@ -770,18 +770,34 @@ function TaskChecklistRow({
                   </p>
                 )}
 
-                {hasEditPermission && !isCancelled && !isDone && noteLines.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newLines = noteLines.filter((_, idx) => idx !== index)
-                      onUpdateField(task.id, 'notes', newLines.join(NOTE_DIVIDER))
-                    }}
-                    className="text-slate-600 hover:text-rose-400 p-0.5 rounded cursor-pointer"
-                    title="Xóa dòng ghi chú này"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                {hasEditPermission && !isCancelled && !isDone && (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newLines = [...noteLines]
+                        newLines.splice(index + 1, 0, '')
+                        onUpdateField(task.id, 'notes', newLines.join(NOTE_DIVIDER))
+                      }}
+                      className="text-cyan-500 hover:text-cyan-400 p-0.5 rounded cursor-pointer hover:bg-cyan-500/10 transition-colors"
+                      title="Chèn dòng ghi chú ngay dưới dòng này"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    {noteLines.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newLines = noteLines.filter((_, idx) => idx !== index)
+                          onUpdateField(task.id, 'notes', newLines.join(NOTE_DIVIDER))
+                        }}
+                        className="text-slate-600 hover:text-rose-400 p-0.5 rounded cursor-pointer hover:bg-rose-500/10 transition-colors"
+                        title="Xóa dòng ghi chú này"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             ))}

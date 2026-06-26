@@ -192,40 +192,63 @@ export function ProjectDetailClient({
           />
         )}
 
-        {activeTab === 'members' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {members.map((pm) => {
-              const memberTasks = tasksState.filter((t) => t.assignee_id === pm.member_id)
-              const memberDone = memberTasks.filter((t) => t.status === 'done').length
-              const totalProjectTasks = tasksState.length
-              const memberProgress = totalProjectTasks > 0
-                ? Math.round((memberDone / totalProjectTasks) * 100)
-                : 0
-              return (
-                <a
-                  key={pm.id}
-                  href={`/members/${pm.member_id}`}
-                  id={`project-member-${pm.member_id}`}
-                  className="glass-card p-4 hover:border-cyan-500/30 transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-sm font-bold text-cyan-400">
-                      {getInitials(pm.member?.full_name ?? 'M')}
+        {activeTab === 'members' && (() => {
+          const uniqueMembersMap = new Map<string, Profile>()
+          
+          members.forEach((pm) => {
+            if (pm.member) {
+              uniqueMembersMap.set(pm.member.id, pm.member)
+            }
+          })
+          
+          tasksState.forEach((t) => {
+            if (t.assignee_id && t.assignee && !uniqueMembersMap.has(t.assignee_id)) {
+              uniqueMembersMap.set(t.assignee_id, t.assignee as Profile)
+            }
+          })
+
+          const allProjectParticipantProfiles = Array.from(uniqueMembersMap.values())
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {allProjectParticipantProfiles.map((profile) => {
+                const memberTasks = tasksState.filter((t) => t.assignee_id === profile.id)
+                const memberDone = memberTasks.filter((t) => t.status === 'done').length
+                const totalProjectTasks = tasksState.length
+                const memberProgress = totalProjectTasks > 0
+                  ? Math.round((memberDone / totalProjectTasks) * 100)
+                  : 0
+                return (
+                  <a
+                    key={profile.id}
+                    href={`/members/${profile.id}`}
+                    id={`project-member-${profile.id}`}
+                    className="glass-card p-4 hover:border-cyan-500/30 transition-all"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-sm font-bold text-cyan-400">
+                        {getInitials(profile.full_name ?? 'M')}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{profile.full_name}</p>
+                        <Badge role={profile.role ?? 'member'} size="sm" />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">{pm.member?.full_name}</p>
-                      <Badge role={pm.member?.role ?? 'member'} size="sm" />
+                    <div className="text-xs text-slate-400 mb-2">
+                      {memberDone}/{totalProjectTasks} tasks hoàn thành
                     </div>
-                  </div>
-                  <div className="text-xs text-slate-400 mb-2">
-                    {memberDone}/{totalProjectTasks} tasks hoàn thành
-                  </div>
-                  <ProgressBar value={memberProgress} size="sm" />
-                </a>
-              )
-            })}
-          </div>
-        )}
+                    <ProgressBar value={memberProgress} size="sm" />
+                  </a>
+                )
+              })}
+              {allProjectParticipantProfiles.length === 0 && (
+                <div className="col-span-full py-12 text-center text-slate-500 text-sm">
+                  Chưa có thành viên nào trong dự án này.
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {activeTab === 'info' && (
           <div className="glass-card p-6 space-y-4">
