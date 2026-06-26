@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import {
   LayoutDashboard, FolderKanban, CheckSquare,
   Users, Activity, BarChart2, Settings,
-  Zap, LogOut, ChevronRight, X
+  Zap, LogOut, ChevronRight, X, Shield
 } from 'lucide-react'
 import { getInitials, ROLE_LABELS, ROLE_COLORS } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -27,6 +27,11 @@ interface SidebarProps {
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
+
+  const visibleNavItems = [
+    ...navItems,
+    ...(user?.role === 'admin' ? [{ href: '/admin/members', label: 'Quản trị', icon: Shield }] : [])
+  ]
 
   return (
     <div className="flex flex-col h-full"
@@ -54,7 +59,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider px-3 mb-3">Menu chính</p>
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {visibleNavItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link

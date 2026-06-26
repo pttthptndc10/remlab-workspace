@@ -20,9 +20,11 @@ export type ActivityEntityType = 'task' | 'project' | 'comment' | 'member'
 
 export interface Profile {
   id: string
+  email: string
   full_name: string
   avatar_url: string | null
   role: UserRole
+  status: 'active' | 'inactive'
   department: string | null
   bio: string | null
   github_url: string | null

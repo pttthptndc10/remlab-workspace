@@ -32,6 +32,27 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('status')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || profile.status === 'inactive') {
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'blocked')
+      const response = NextResponse.redirect(url)
+      // Sao chép cookies để đảm bảo xóa session thành công
+      supabaseResponse.cookies.getAll().forEach(cookie => {
+        response.cookies.set(cookie.name, cookie.value)
+      })
+      return response
+    }
+  }
+
   // Các route cần đăng nhập
   const protectedPaths = ['/dashboard', '/projects', '/tasks', '/members', '/activity', '/reports', '/settings']
   const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))

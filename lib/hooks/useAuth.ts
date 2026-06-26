@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/types'
+import { useRouter } from 'next/navigation'
 
 export function useAuth() {
   const supabase = createClient()
+  const router = useRouter()
   const [user, setUser] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -18,6 +20,12 @@ export function useAuth() {
     return data as Profile | null
   }, [supabase])
 
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    router.push('/login')
+  }, [supabase, router])
+
   useEffect(() => {
     let mounted = true
 
@@ -25,7 +33,15 @@ export function useAuth() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user && mounted) {
         const profile = await fetchProfile(session.user.id)
-        if (mounted) setUser(profile)
+        if (mounted) {
+          if (profile && profile.status === 'inactive') {
+            await supabase.auth.signOut()
+            setUser(null)
+            router.push('/login?error=blocked')
+          } else {
+            setUser(profile)
+          }
+        }
       }
       if (mounted) setLoading(false)
     }
@@ -37,7 +53,13 @@ export function useAuth() {
         if (!mounted) return
         if (session?.user) {
           const profile = await fetchProfile(session.user.id)
-          setUser(profile)
+          if (profile && profile.status === 'inactive') {
+            await supabase.auth.signOut()
+            setUser(null)
+            router.push('/login?error=blocked')
+          } else {
+            setUser(profile)
+          }
         } else {
           setUser(null)
         }
@@ -49,12 +71,7 @@ export function useAuth() {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [supabase, fetchProfile])
-
-  const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-  }
+  }, [supabase, fetchProfile, router])
 
   const isAdmin = user?.role === 'admin'
   const isLeader = user?.role === 'leader'
