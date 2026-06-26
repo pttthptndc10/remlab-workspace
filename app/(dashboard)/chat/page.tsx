@@ -443,7 +443,7 @@ export default function ChatPage() {
 
   return (
     <DashboardShell title="Trò chuyện nhóm" subtitle="Kênh thảo luận chung realtime của RemLab">
-      <div className="glass-card flex flex-col h-[calc(100vh-210px)] max-h-[700px] overflow-hidden animate-fade-in relative">
+      <div className="glass-card flex flex-col h-[calc(100vh-170px)] lg:h-[calc(100vh-185px)] overflow-hidden animate-fade-in relative">
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/10 bg-white/[0.02] flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
