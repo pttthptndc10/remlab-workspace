@@ -263,7 +263,9 @@ export default function ChatPage() {
       handleRemoveImage()
     } catch (err: any) {
       console.error('Lỗi khi gửi tin nhắn:', err)
-      toast.error(err.message || 'Gửi tin nhắn thất bại!')
+      const { data: { session } } = await supabase.auth.getSession()
+      const debugInfo = `(User: ${user?.email || 'null'}, Auth Session: ${session?.user?.email || 'Chưa đăng nhập'})`
+      toast.error(`${err.message || 'Gửi tin nhắn thất bại!'} ${debugInfo}`)
     } finally {
       setSending(false)
     }
