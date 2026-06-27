@@ -718,7 +718,11 @@ function TaskChecklistRow({
             <button
               type="button"
               id={`checklist-delete-${task.id}`}
-              onClick={() => onDelete(task.id)}
+              onClick={() => {
+                if (window.confirm('Bạn có chắc chắn muốn xóa công việc này không?')) {
+                  onDelete(task.id)
+                }
+              }}
               className="text-slate-600 hover:text-red-400 hover:bg-red-500/10 p-1.5 rounded-lg transition-all cursor-pointer"
               title="Xóa công việc"
             >
