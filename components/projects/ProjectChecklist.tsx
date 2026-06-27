@@ -1250,83 +1250,153 @@ export function ProjectChecklist({
                         )}
                       </div>
 
-                      {/* Message bubble */}
-                      <div className="relative">
-                        {editingMessageId === msg.id ? (
-                          <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 min-w-[200px] flex flex-col gap-2">
-                            <textarea
-                              value={editingMessageText}
-                              onChange={(e) => setEditingMessageText(e.target.value)}
-                              rows={2}
-                              className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500/30 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-700 outline-none transition-all resize-none leading-relaxed"
-                            />
-                            <div className="flex justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setEditingMessageId(null)}
-                                className="text-[10px] bg-slate-800 text-slate-400 py-1 px-2 rounded hover:bg-slate-700"
-                              >
-                                Hủy
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleEditMessage(msg.id)}
-                                className="text-[10px] bg-indigo-600 text-white py-1 px-2 rounded hover:bg-indigo-500"
-                              >
-                                Lưu
-                              </button>
+                      {/* Message bubble & actions wrapper */}
+                      <div className={cn("flex items-center gap-1.5 group/bubble", isMine ? "flex-row-reverse" : "flex-row")}>
+                        <div className="relative">
+                          {editingMessageId === msg.id ? (
+                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 min-w-[200px] flex flex-col gap-2">
+                              <textarea
+                                value={editingMessageText}
+                                onChange={(e) => setEditingMessageText(e.target.value)}
+                                rows={2}
+                                className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500/30 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-700 outline-none transition-all resize-none leading-relaxed"
+                              />
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingMessageId(null)}
+                                  className="text-[10px] bg-slate-800 text-slate-400 py-1 px-2 rounded hover:bg-slate-700"
+                                >
+                                  Hủy
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditMessage(msg.id)}
+                                  className="text-[10px] bg-indigo-600 text-white py-1 px-2 rounded hover:bg-indigo-500"
+                                >
+                                  Lưu
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div 
-                            className={cn(
-                              "rounded-2xl p-2.5 text-xs leading-relaxed break-words whitespace-pre-wrap select-text",
-                              isMine 
-                                ? "bg-indigo-500/10 border border-indigo-500/20 text-slate-100 rounded-tr-none" 
-                                : "bg-slate-900/40 border border-slate-800 text-slate-200 rounded-tl-none"
-                            )}
-                          >
-                            {/* Attachment */}
-                            {msg.attachment_url && (
-                              <div className="mb-2 max-w-full">
-                                {msg.attachment_type?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(msg.attachment_type || '') ? (
-                                  <div 
-                                    className="cursor-zoom-in rounded-lg overflow-hidden border border-white/5 max-h-[140px] hover:opacity-90 transition-opacity"
-                                    onClick={() => setActiveLightboxUrl(msg.attachment_url)}
-                                  >
-                                    <img 
-                                      src={msg.attachment_url} 
-                                      alt={msg.attachment_name || 'Hình ảnh'}
-                                      className="object-cover w-full h-full max-h-[140px]"
-                                    />
-                                  </div>
-                                ) : (
-                                  <a 
-                                    href={msg.attachment_url} 
-                                    download={msg.attachment_name}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-white/5 hover:border-indigo-500/30 transition-all group/card max-w-xs"
-                                  >
-                                    <div className="p-1.5 rounded bg-indigo-500/10 text-indigo-400">
-                                      <FileText size={16} />
+                          ) : (
+                            <div 
+                              className={cn(
+                                "rounded-2xl p-2.5 text-xs leading-relaxed break-words whitespace-pre-wrap select-text",
+                                isMine 
+                                  ? "bg-indigo-500/10 border border-indigo-500/20 text-slate-100 rounded-tr-none" 
+                                  : "bg-slate-900/40 border border-slate-800 text-slate-200 rounded-tl-none"
+                              )}
+                            >
+                              {/* Attachment */}
+                              {msg.attachment_url && (
+                                <div className="mb-2 max-w-full">
+                                  {msg.attachment_type?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(msg.attachment_type || '') ? (
+                                    <div 
+                                      className="cursor-zoom-in rounded-lg overflow-hidden border border-white/5 max-h-[140px] hover:opacity-90 transition-opacity"
+                                      onClick={() => setActiveLightboxUrl(msg.attachment_url)}
+                                    >
+                                      <img 
+                                        src={msg.attachment_url} 
+                                        alt={msg.attachment_name || 'Hình ảnh'}
+                                        className="object-cover w-full h-full max-h-[140px]"
+                                      />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-[11px] font-medium text-slate-200 truncate group-hover/card:text-indigo-300">
-                                        {msg.attachment_name}
-                                      </p>
-                                      <span className="text-[9px] text-slate-600 block uppercase">
-                                        {msg.attachment_type?.split('/').pop() || 'Tài liệu'}
-                                      </span>
-                                    </div>
-                                    <Download size={12} className="text-slate-500 group-hover/card:text-slate-300 flex-shrink-0" />
-                                  </a>
+                                  ) : (
+                                    <a 
+                                      href={msg.attachment_url} 
+                                      download={msg.attachment_name}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-white/5 hover:border-indigo-500/30 transition-all group/card max-w-xs"
+                                    >
+                                      <div className="p-1.5 rounded bg-indigo-500/10 text-indigo-400">
+                                        <FileText size={16} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-medium text-slate-200 truncate group-hover/card:text-indigo-300">
+                                          {msg.attachment_name}
+                                        </p>
+                                        <span className="text-[9px] text-slate-600 block uppercase">
+                                          {msg.attachment_type?.split('/').pop() || 'Tài liệu'}
+                                        </span>
+                                      </div>
+                                      <Download size={12} className="text-slate-500 group-hover/card:text-slate-300 flex-shrink-0" />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Text content */}
+                              {msg.content && <span>{msg.content}</span>}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions menu dropdown */}
+                        {!recalled && (isMine || isAdmin || currentUser.role === 'leader') && (
+                          <div className="relative flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setActiveDropdownMsgId(activeDropdownMsgId === msg.id ? null : msg.id)
+                              }}
+                              className="w-5 h-5 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-slate-300 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all opacity-100 md:opacity-0 md:group-hover/bubble:opacity-100 focus:opacity-100 cursor-pointer"
+                              title="Tùy chọn"
+                            >
+                              <MoreVertical size={11} />
+                            </button>
+                            
+                            {activeDropdownMsgId === msg.id && (
+                              <div 
+                                className={cn(
+                                  "absolute top-6 bg-slate-950 border border-slate-800 rounded-xl p-1 shadow-2xl z-20 min-w-[120px] flex flex-col gap-0.5",
+                                  isMine ? "right-0" : "left-0"
+                                )}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {/* Edit */}
+                                {isMine && !recalled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingMessageId(msg.id)
+                                      setEditingMessageText(msg.content || '')
+                                      setActiveDropdownMsgId(null)
+                                    }}
+                                    className="w-full text-left px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-1.5"
+                                  >
+                                    <Edit2 size={11} /> Sửa
+                                  </button>
+                                )}
+                                {/* Recall */}
+                                {((isMine || isAdmin || currentUser.role === 'leader')) && !recalled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleRecallMessage(msg.id)
+                                      setActiveDropdownMsgId(null)
+                                    }}
+                                    className="w-full text-left px-2.5 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 rounded-lg transition-colors flex items-center gap-1.5"
+                                  >
+                                    <Trash2 size={11} /> Thu hồi
+                                  </button>
+                                )}
+                                {/* View message history (Admin only) */}
+                                {isAdmin && msg.edited_at && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleViewMessageHistory(msg.id)
+                                      setActiveDropdownMsgId(null)
+                                    }}
+                                    className="w-full text-left px-2.5 py-1.5 text-xs text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/5 rounded-lg transition-colors flex items-center gap-1.5"
+                                  >
+                                    <History size={11} /> Lịch sử sửa
+                                  </button>
                                 )}
                               </div>
                             )}
-                            
-                            {/* Text content */}
-                            {msg.content && <span>{msg.content}</span>}
                           </div>
                         )}
                       </div>
@@ -1336,79 +1406,6 @@ export function ProjectChecklist({
                         <span>{formatChatTime(msg.created_at)}</span>
                         {msg.edited_at && (
                           <span className="text-slate-600 italic select-none">· Đã chỉnh sửa</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Message Actions Menu Button (⋮) - Shows on Hover */}
-                    <div 
-                      className={cn(
-                        "opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity absolute top-1/2 -translate-y-1/2 flex items-center z-10",
-                        isMine ? "left-[-35px]" : "right-[-35px]"
-                      )}
-                    >
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setActiveDropdownMsgId(activeDropdownMsgId === msg.id ? null : msg.id)
-                          }}
-                          className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-slate-300 flex items-center justify-center hover:bg-slate-800 transition-all"
-                        >
-                          <MoreVertical size={12} />
-                        </button>
-                        
-                        {/* Dropdown Options */}
-                        {activeDropdownMsgId === msg.id && (
-                          <div 
-                            className={cn(
-                              "absolute bottom-7 bg-slate-950 border border-slate-800 rounded-xl p-1.5 shadow-2xl z-20 min-w-[120px] flex flex-col gap-0.5",
-                              isMine ? "right-0" : "left-0"
-                            )}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {/* Edit */}
-                            {isMine && !recalled && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingMessageId(msg.id)
-                                  setEditingMessageText(msg.content || '')
-                                  setActiveDropdownMsgId(null)
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors flex items-center gap-1.5"
-                              >
-                                <Edit2 size={11} /> Sửa
-                              </button>
-                            )}
-                            {/* Recall */}
-                            {isMine && !recalled && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleRecallMessage(msg.id)
-                                  setActiveDropdownMsgId(null)
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 rounded-lg transition-colors flex items-center gap-1.5"
-                              >
-                                <Trash2 size={11} /> Thu hồi
-                              </button>
-                            )}
-                            {/* View message history (Admin only) */}
-                            {isAdmin && msg.edited_at && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleViewMessageHistory(msg.id)
-                                  setActiveDropdownMsgId(null)
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 text-xs text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/5 rounded-lg transition-colors flex items-center gap-1.5"
-                              >
-                                <History size={11} /> Lịch sử sửa
-                              </button>
-                            )}
-                          </div>
                         )}
                       </div>
                     </div>
