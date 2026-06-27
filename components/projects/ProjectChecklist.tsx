@@ -707,7 +707,7 @@ export function ProjectChecklist({
   const handleSendMessage = async (text: string, fileUrl?: string, fileName?: string, fileType?: string) => {
     if (!text.trim() && !fileUrl) return
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('discussion_messages')
         .insert({
           project_id: project.id,
@@ -717,12 +717,21 @@ export function ProjectChecklist({
           attachment_name: fileName || null,
           attachment_type: fileType || null
         })
+        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .single()
 
       if (error) throw error
+      if (data) {
+        setMessages(prev => {
+          if (prev.some(m => m.id === data.id)) return prev
+          return [...prev, data as DiscussionMessage]
+        })
+        setTimeout(scrollToBottom, 50)
+      }
       setChatInput('')
-      setTimeout(scrollToBottom, 50)
-    } catch (err) {
-      toast.error('Không thể gửi thảo luận')
+    } catch (err: any) {
+      toast.error(`Không thể gửi thảo luận: ${err?.message || err}`)
+      console.error(err)
     }
   }
 
@@ -749,8 +758,8 @@ export function ProjectChecklist({
 
       await handleSendMessage('', publicUrl, file.name, file.type || fileExt)
       toast.success('Đính kèm tài liệu thành công!')
-    } catch (err) {
-      toast.error('Tải tài liệu lên thất bại')
+    } catch (err: any) {
+      toast.error(`Tải tài liệu lên thất bại: ${err?.message || err}`)
       console.error(err)
     } finally {
       setUploadingFile(false)
@@ -763,27 +772,32 @@ export function ProjectChecklist({
   const handleEditMessage = async (id: string) => {
     if (!editingMessageText.trim()) return
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('discussion_messages')
         .update({
           content: editingMessageText.trim(),
           edited_at: new Date().toISOString()
         })
         .eq('id', id)
+        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .single()
 
       if (error) throw error
+      if (data) {
+        setMessages(prev => prev.map(m => m.id === data.id ? (data as DiscussionMessage) : m))
+      }
       setEditingMessageId(null)
       setEditingMessageText('')
       toast.success('Đã cập nhật thảo luận')
-    } catch (err) {
-      toast.error('Lỗi khi cập nhật thảo luận')
+    } catch (err: any) {
+      toast.error(`Lỗi khi cập nhật thảo luận: ${err?.message || err}`)
     }
   }
 
   // Thu hồi tin nhắn
   const handleRecallMessage = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('discussion_messages')
         .update({
           is_recalled: true,
@@ -791,18 +805,23 @@ export function ProjectChecklist({
           recalled_by: currentUser.id
         })
         .eq('id', id)
+        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .single()
 
       if (error) throw error
+      if (data) {
+        setMessages(prev => prev.map(m => m.id === data.id ? (data as DiscussionMessage) : m))
+      }
       toast.success('Đã thu hồi tin nhắn')
-    } catch (err) {
-      toast.error('Không thể thu hồi tin nhắn')
+    } catch (err: any) {
+      toast.error(`Không thể thu hồi tin nhắn: ${err?.message || err}`)
     }
   }
 
   // Khôi phục tin nhắn
   const handleRestoreMessage = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('discussion_messages')
         .update({
           is_recalled: false,
@@ -811,11 +830,16 @@ export function ProjectChecklist({
           recalled_by: null
         })
         .eq('id', id)
+        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .single()
 
       if (error) throw error
+      if (data) {
+        setMessages(prev => prev.map(m => m.id === data.id ? (data as DiscussionMessage) : m))
+      }
       toast.success('Đã khôi phục tin nhắn')
-    } catch (err) {
-      toast.error('Không thể khôi phục tin nhắn')
+    } catch (err: any) {
+      toast.error(`Không thể khôi phục tin nhắn: ${err?.message || err}`)
     }
   }
 
