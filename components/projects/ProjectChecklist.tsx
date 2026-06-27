@@ -635,7 +635,7 @@ export function ProjectChecklist({
   const fetchSingleMessage = async (msgId: string) => {
     const { data } = await supabase
       .from('discussion_messages')
-      .select('*, author:profiles(id, full_name, avatar_url, role)')
+      .select('*, author:profiles!discussion_messages_author_id_fkey(id, full_name, avatar_url, role)')
       .eq('id', msgId)
       .single()
     return data as DiscussionMessage | null
@@ -648,7 +648,7 @@ export function ProjectChecklist({
       try {
         const { data, error } = await supabase
           .from('discussion_messages')
-          .select('*, author:profiles(id, full_name, avatar_url, role)')
+          .select('*, author:profiles!discussion_messages_author_id_fkey(id, full_name, avatar_url, role)')
           .eq('project_id', project.id)
           .order('created_at', { ascending: true })
 
@@ -717,7 +717,7 @@ export function ProjectChecklist({
           attachment_name: fileName || null,
           attachment_type: fileType || null
         })
-        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .select('*, author:profiles!discussion_messages_author_id_fkey(id, full_name, avatar_url, role)')
         .single()
 
       if (error) throw error
@@ -779,7 +779,7 @@ export function ProjectChecklist({
           edited_at: new Date().toISOString()
         })
         .eq('id', id)
-        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .select('*, author:profiles!discussion_messages_author_id_fkey(id, full_name, avatar_url, role)')
         .single()
 
       if (error) throw error
@@ -805,7 +805,7 @@ export function ProjectChecklist({
           recalled_by: currentUser.id
         })
         .eq('id', id)
-        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .select('*, author:profiles!discussion_messages_author_id_fkey(id, full_name, avatar_url, role)')
         .single()
 
       if (error) throw error
@@ -830,7 +830,7 @@ export function ProjectChecklist({
           recalled_by: null
         })
         .eq('id', id)
-        .select('*, author:profiles(id, full_name, avatar_url, role)')
+        .select('*, author:profiles!discussion_messages_author_id_fkey(id, full_name, avatar_url, role)')
         .single()
 
       if (error) throw error
