@@ -1341,7 +1341,7 @@ export function ProjectChecklist({
                                 e.stopPropagation()
                                 setActiveDropdownMsgId(activeDropdownMsgId === msg.id ? null : msg.id)
                               }}
-                              className="w-5 h-5 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-slate-300 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all opacity-100 md:opacity-0 md:group-hover/bubble:opacity-100 focus:opacity-100 cursor-pointer"
+                              className="w-5 h-5 rounded-lg bg-slate-900/60 border border-slate-800/80 text-slate-500 hover:text-slate-300 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all opacity-80 hover:opacity-100 cursor-pointer"
                               title="Tùy chọn"
                             >
                               <MoreVertical size={11} />
