@@ -1371,7 +1371,7 @@ export function ProjectChecklist({
                         </div>
 
                         {/* Actions menu dropdown */}
-                        {!recalled && (isMine || isAdmin || currentUser.role === 'leader') && (
+                        {!recalled && (isMine || (isAdmin && !!msg.edited_at)) && (
                           <div className="relative flex-shrink-0">
                             <button
                               type="button"
@@ -1408,16 +1408,18 @@ export function ProjectChecklist({
                                   </button>
                                 )}
                                 {/* Recall */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleRecallMessage(msg.id)
-                                    setActiveDropdownMsgId(null)
-                                  }}
-                                  className="w-full text-left px-2.5 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                                >
-                                  <Trash2 size={11} /> Thu hồi
-                                </button>
+                                {isMine && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleRecallMessage(msg.id)
+                                      setActiveDropdownMsgId(null)
+                                    }}
+                                    className="w-full text-left px-2.5 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                                  >
+                                    <Trash2 size={11} /> Thu hồi
+                                  </button>
+                                )}
                                 {/* View message history (Admin only) */}
                                 {isAdmin && msg.edited_at && (
                                   <button
