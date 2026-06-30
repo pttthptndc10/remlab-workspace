@@ -96,7 +96,36 @@ export default function ChatPage() {
 
         if (error) throw error
         console.log("FETCHED MESSAGES:", data)
-        setMessages(data as ChatMessage[])
+
+        const formatted = (data || []).map((msg: any) => {
+          let replyToObj = msg.reply_to
+          if (Array.isArray(replyToObj)) {
+            replyToObj = replyToObj[0] || null
+          }
+          if (replyToObj) {
+            let replySenderObj = replyToObj.sender
+            if (Array.isArray(replySenderObj)) {
+              replySenderObj = replySenderObj[0] || null
+            }
+            replyToObj = {
+              ...replyToObj,
+              sender: replySenderObj
+            }
+          }
+
+          let senderObj = msg.sender
+          if (Array.isArray(senderObj)) {
+            senderObj = senderObj[0] || null
+          }
+
+          return {
+            ...msg,
+            reply_to: replyToObj,
+            sender: senderObj
+          }
+        })
+
+        setMessages(formatted as ChatMessage[])
       } catch (err: any) {
         console.error('Lỗi tải tin nhắn:', err)
         toast.error('Không thể tải lịch sử trò chuyện: ' + err.message)
