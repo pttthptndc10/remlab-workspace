@@ -44,12 +44,7 @@ export function MissionBlock({
         {/* Left: Logo + Mission */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-2">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(6,182,212,0.2)', border: '1px solid rgba(6,182,212,0.4)' }}
-            >
-              <Zap className="w-5 h-5 text-cyan-400" />
-            </div>
+            <img src="/logo.png" alt="RemLab Logo" className="w-12 h-12 object-contain rounded-xl flex-shrink-0" />
             <div>
               <h1
                 className="text-2xl md:text-3xl font-black tracking-tight"

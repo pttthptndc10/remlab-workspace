@@ -40,10 +40,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center justify-between px-4 py-5" style={{ borderBottom: '1px solid #1e293b' }}>
         <Link href="/dashboard" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 glow-cyan"
-            style={{ background: 'linear-gradient(135deg, #0891b2, #06b6d4)' }}>
-            <Zap size={16} className="text-white" />
-          </div>
+          <img src="/logo.png" alt="RemLab Logo" className="w-8 h-8 object-contain rounded-lg flex-shrink-0" />
           <div>
             <span className="text-base font-bold gradient-text">RemLab</span>
             <p className="text-xs text-slate-600 -mt-0.5">Workspace</p>

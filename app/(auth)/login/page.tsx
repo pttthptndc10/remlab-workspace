@@ -44,11 +44,8 @@ function LoginForm() {
     <div className="w-full max-w-md relative">
       {/* Logo */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 mb-4">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #0891b2, #06b6d4)' }}>
-            <Zap size={20} className="text-white" />
-          </div>
+        <div className="inline-flex items-center gap-3 mb-4">
+          <img src="/logo.png" alt="RemLab Logo" className="w-12 h-12 object-contain rounded-xl" />
           <span className="text-2xl font-bold gradient-text">RemLab</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-100 mb-1">Chào mừng trở lại</h1>
