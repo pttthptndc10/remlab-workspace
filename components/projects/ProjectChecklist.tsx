@@ -656,10 +656,15 @@ export function ProjectChecklist({
   
   const [activeDropdownMsgId, setActiveDropdownMsgId] = useState<string | null>(null)
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior
+      })
+    }
   }
 
   const fetchSingleMessage = async (msgId: string) => {
@@ -1183,7 +1188,10 @@ export function ProjectChecklist({
           </div>
 
           {/* Messages List Area */}
-          <div className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 py-1 scrollbar-thin">
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 py-1 scrollbar-thin"
+          >
             {msgLoading ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-500">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" /> Đang tải thảo luận...
@@ -1441,7 +1449,7 @@ export function ProjectChecklist({
                 )
               })
             )}
-            <div ref={messagesEndRef} />
+            {/* End of messages */}
           </div>
 
           {/* Chat input at bottom */}
