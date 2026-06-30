@@ -12,13 +12,20 @@ interface StatCardProps {
   }
   description?: string
   id?: string
+  onClick?: () => void
 }
 
-export function StatCard({ title, value, icon: Icon, color, trend, description, id }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, color, trend, description, id, onClick }: StatCardProps) {
   return (
     <div
       id={id}
-      className="glass-card p-5 relative overflow-hidden hover:scale-[1.02] transition-transform duration-200"
+      onClick={onClick}
+      className={cn(
+        "glass-card p-5 relative overflow-hidden transition-all duration-200",
+        onClick 
+          ? "cursor-pointer hover:scale-[1.02] active:scale-[0.98] hover:bg-white/[0.03] border-white/10 hover:border-white/20 select-none" 
+          : "hover:scale-[1.02]"
+      )}
       style={{ borderLeft: `3px solid ${color}` }}
     >
       {/* Background glow */}
