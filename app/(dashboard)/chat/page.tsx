@@ -90,7 +90,7 @@ export default function ChatPage() {
       try {
         const { data, error } = await supabase
           .from('messages')
-          .select('*, sender:profiles(id, full_name, avatar_url, role), reply_to:messages(id, content, image_url, sender_id, is_recalled, sender:profiles(id, full_name))')
+          .select('*, sender:profiles(id, full_name, avatar_url, role), reply_to:messages!reply_to_id(id, content, image_url, sender_id, is_recalled, sender:profiles(id, full_name))')
           .order('created_at', { ascending: true })
           .limit(100)
 
