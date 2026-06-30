@@ -19,6 +19,8 @@ interface ProjectChecklistProps {
   projectMembers: Profile[]
   allProfiles: Profile[]
   onSaveSuccess?: (tasks: Task[], project: Project) => void
+  saveRef?: React.RefObject<(() => Promise<void>) | null>
+  onDirtyChange?: (isDirty: boolean, saving: boolean) => void
 }
 
 interface DiscussionMessage {
@@ -177,6 +179,8 @@ export function ProjectChecklist({
   projectMembers,
   allProfiles,
   onSaveSuccess,
+  saveRef,
+  onDirtyChange,
 }: ProjectChecklistProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -425,6 +429,32 @@ export function ProjectChecklist({
       setSaving(false)
     }
   }
+
+  // Synchronize handleSave and dirty states with parent
+  const latestHandleSave = useRef(handleSave)
+  useEffect(() => {
+    latestHandleSave.current = handleSave
+  })
+
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = () => latestHandleSave.current()
+    }
+    return () => {
+      if (saveRef) {
+        saveRef.current = null
+      }
+    }
+  }, [saveRef])
+
+  const latestOnDirtyChange = useRef(onDirtyChange)
+  useEffect(() => {
+    latestOnDirtyChange.current = onDirtyChange
+  })
+
+  useEffect(() => {
+    latestOnDirtyChange.current?.(isDirty, saving)
+  }, [isDirty, saving])
 
   // ==========================================
   // NHẬT KÝ CÔNG VIỆC STATE & HANDLERS
@@ -882,7 +912,7 @@ export function ProjectChecklist({
       {/* Thông báo có thay đổi chưa lưu */}
       {isDirty && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400 font-medium">
-          ⚠️ Bạn đang có thay đổi công việc chưa lưu. Vui lòng nhấn nút &quot;Lưu thay đổi&quot; ở cuối trang.
+          ⚠️ Bạn đang có thay đổi công việc chưa lưu. Vui lòng nhấn nút &quot;Lưu thay đổi&quot; ở đầu trang.
         </div>
       )}
 
@@ -1467,24 +1497,7 @@ export function ProjectChecklist({
         </div>
       </div>
 
-      {/* Nút lưu checklist (Giữ nguyên) */}
-      {hasEditPermission && (
-        <div className="flex justify-end border-t border-white/10 pt-4">
-          <button
-            id="checklist-save-btn"
-            onClick={handleSave}
-            disabled={!isDirty || saving || isPending}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 ${
-              isDirty && !saving && !isPending
-                ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 hover:scale-[1.02] cursor-pointer'
-                : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-50'
-            }`}
-          >
-            <Save className="w-4 h-4" />
-            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-          </button>
-        </div>
-      )}
+      {/* Nút lưu checklist đã được chuyển lên đầu trang */}
 
       {/* ==========================================
           MODALS & OVERLAYS SYSTEM
