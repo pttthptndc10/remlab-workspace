@@ -20,6 +20,10 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
   const [creating, setCreating] = useState(false)
   const [newBatchName, setNewBatchName] = useState('')
 
+  const [expandedBatch, setExpandedBatch] = useState<string | null>(null)
+  const [batchFiles, setBatchFiles] = useState<any[]>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newBatchName.trim()) return
@@ -48,6 +52,30 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
       toast.error('Lỗi khi tạo phiên gom hàng: ' + err.message)
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleToggleExpand = async (batchId: string) => {
+    if (expandedBatch === batchId) {
+      setExpandedBatch(null)
+      return
+    }
+    
+    setExpandedBatch(batchId)
+    setLoadingFiles(true)
+    try {
+      const { data, error } = await supabase
+        .from('component_files')
+        .select('*, project:projects(id, name), creator:profiles!component_files_created_by_fkey(id, full_name)')
+        .eq('batch_id', batchId)
+        .order('created_at', { ascending: false })
+        
+      if (error) throw error
+      setBatchFiles(data || [])
+    } catch (err: any) {
+      toast.error('Lỗi tải danh sách file: ' + err.message)
+    } finally {
+      setLoadingFiles(false)
     }
   }
 
@@ -183,35 +211,79 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
             </div>
           ) : (
             batches.map(batch => (
-              <div key={batch.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-slate-800/40 hover:bg-slate-800/60 transition-colors">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-slate-200">{batch.name}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${batch.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'}`}>
-                      {batch.status === 'active' ? 'Đang mở' : 'Đã đóng'}
-                    </span>
+              <div key={batch.id} className="flex flex-col border border-white/10 rounded-xl bg-slate-800/40 overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 hover:bg-slate-800/60 transition-colors">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-slate-200">{batch.name}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${batch.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'}`}>
+                        {batch.status === 'active' ? 'Đang mở' : 'Đã đóng'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Tạo bởi {batch.creator?.full_name || 'Admin'} • {formatDate(batch.created_at)}
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-400">
-                    Tạo bởi {batch.creator?.full_name || 'Admin'} • {formatDate(batch.created_at)}
-                  </div>
+                  
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleToggleExpand(batch.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors border border-white/10"
+                      >
+                        {expandedBatch === batch.id ? 'Thu gọn' : 'Xem chi tiết'}
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(batch.id, batch.status)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors border border-white/10"
+                      >
+                        {batch.status === 'active' ? 'Đóng phiên' : 'Mở lại'}
+                      </button>
+                      <button
+                        onClick={() => handleExportBatch(batch.id, batch.name)}
+                        disabled={loading}
+                        className="btn-secondary py-1.5 px-3 text-sm"
+                      >
+                        <Download size={14} />
+                        Gộp & Xuất Excel
+                      </button>
+                    </div>
+                  )}
                 </div>
-                
-                {isAdmin && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => handleToggleStatus(batch.id, batch.status)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors border border-white/10"
-                    >
-                      {batch.status === 'active' ? 'Đóng phiên' : 'Mở lại'}
-                    </button>
-                    <button
-                      onClick={() => handleExportBatch(batch.id, batch.name)}
-                      disabled={loading}
-                      className="btn-secondary py-1.5 px-3 text-sm"
-                    >
-                      <Download size={14} />
-                      Gộp & Xuất Excel
-                    </button>
+
+                {expandedBatch === batch.id && (
+                  <div className="p-4 bg-slate-900/50 border-t border-white/5">
+                    <h5 className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider">Danh sách file đã nộp</h5>
+                    {loadingFiles ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Đang tải dữ liệu...
+                      </div>
+                    ) : batchFiles.length === 0 ? (
+                      <div className="text-sm text-slate-500 italic">Chưa có ai nộp file linh kiện vào phiên này.</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {batchFiles.map((file, idx) => (
+                          <div key={file.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/40 border border-white/5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 rounded bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold">
+                                {idx + 1}
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-slate-200">
+                                  Dự án: {file.project?.name || 'Không rõ'}
+                                </div>
+                                <div className="text-xs text-slate-400 mt-0.5">
+                                  Người nộp: {file.creator?.full_name || 'Không rõ'} • {formatDate(file.created_at)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-xs font-medium text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded">
+                              {Array.isArray(file.content) ? file.content.length : 0} linh kiện
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

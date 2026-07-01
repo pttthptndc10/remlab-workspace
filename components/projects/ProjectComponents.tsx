@@ -112,15 +112,33 @@ export function ProjectComponents({ project, currentUser }: ProjectComponentsPro
 
     setLoading(true)
     try {
-      const { error } = await supabase.from('component_files').insert({
-        project_id: project.id,
-        batch_id: selectedBatchId,
-        created_by: currentUser.id,
-        content: validItems,
-      })
+      const { data: existing } = await supabase
+        .from('component_files')
+        .select('id')
+        .eq('project_id', project.id)
+        .eq('batch_id', selectedBatchId)
+        .maybeSingle()
+        
+      let saveError;
+      
+      if (existing) {
+        const { error } = await supabase.from('component_files').update({
+          content: validItems,
+          created_at: new Date().toISOString()
+        }).eq('id', existing.id)
+        saveError = error
+      } else {
+        const { error } = await supabase.from('component_files').insert({
+          project_id: project.id,
+          batch_id: selectedBatchId,
+          created_by: currentUser.id,
+          content: validItems,
+        })
+        saveError = error
+      }
 
-      if (error) throw error
-      toast.success('Đã đưa vào hàng chờ gom hàng!')
+      if (saveError) throw saveError
+      toast.success(existing ? 'Đã cập nhật file trong hàng chờ!' : 'Đã đưa vào hàng chờ gom hàng!')
       
       // Reset form
       setItems([{ id: crypto.randomUUID(), name: '', price: 0, shop: '', notes: '' }])
