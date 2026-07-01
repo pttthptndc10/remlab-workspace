@@ -23,28 +23,50 @@ export function ProjectComponents({ project, currentUser }: ProjectComponentsPro
   const [loading, setLoading] = useState(false)
   const [fetchingBatches, setFetchingBatches] = useState(true)
 
+  // Fetch batches and latest saved components
   useEffect(() => {
-    async function fetchBatches() {
+    async function fetchData() {
       try {
-        const { data, error } = await supabase
+        // 1. Fetch active batches
+        const { data: batchesData, error: batchesError } = await supabase
           .from('component_batches')
           .select('*')
           .eq('status', 'active')
           .order('created_at', { ascending: false })
 
-        if (error) throw error
-        setBatches(data || [])
-        if (data && data.length > 0) {
-          setSelectedBatchId(data[0].id)
+        if (batchesError) throw batchesError
+        setBatches(batchesData || [])
+        if (batchesData && batchesData.length > 0) {
+          setSelectedBatchId(batchesData[0].id)
+        }
+
+        // 2. Fetch latest saved components for this project to pre-fill the form
+        const { data: latestFile } = await supabase
+          .from('component_files')
+          .select('content')
+          .eq('project_id', project.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (latestFile && Array.isArray(latestFile.content) && latestFile.content.length > 0) {
+          const loadedItems = latestFile.content.map((item: any) => ({
+            id: item.id || crypto.randomUUID(),
+            name: item.name || '',
+            price: item.price || 0,
+            shop: item.shop || '',
+            notes: item.notes || ''
+          }))
+          setItems(loadedItems)
         }
       } catch (err: any) {
-        toast.error('Lỗi tải danh sách phiên gom hàng: ' + err.message)
+        toast.error('Lỗi tải dữ liệu: ' + err.message)
       } finally {
         setFetchingBatches(false)
       }
     }
-    fetchBatches()
-  }, [supabase])
+    fetchData()
+  }, [supabase, project.id])
 
   const handleAddItem = () => {
     setItems(prev => [
@@ -140,8 +162,6 @@ export function ProjectComponents({ project, currentUser }: ProjectComponentsPro
       if (saveError) throw saveError
       toast.success(existing ? 'Đã cập nhật file trong hàng chờ!' : 'Đã đưa vào hàng chờ gom hàng!')
       
-      // Reset form
-      setItems([{ id: crypto.randomUUID(), name: '', price: 0, shop: '', notes: '' }])
     } catch (err: any) {
       toast.error('Lỗi khi đưa vào hàng chờ: ' + err.message)
     } finally {

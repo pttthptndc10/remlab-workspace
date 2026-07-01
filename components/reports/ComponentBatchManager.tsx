@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Download, Loader2, Package, FolderOpen } from 'lucide-react'
+import { Plus, Download, Loader2, Package, FolderOpen, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import type { ComponentBatch, ComponentFile } from '@/lib/types'
@@ -167,6 +167,22 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
     }
   }
 
+  const handleDeleteBatch = async (batchId: string) => {
+    if (!window.confirm("BẠN CÓ CHẮC CHẮN MUỐN XÓA PHIÊN GOM HÀNG NÀY?\n\nLưu ý: Mọi file linh kiện đã nộp trong phiên này cũng sẽ bị xóa vĩnh viễn và không thể khôi phục!")) {
+      return
+    }
+    
+    try {
+      const { error } = await supabase.from('component_batches').delete().eq('id', batchId)
+      if (error) throw error
+      
+      setBatches(prev => prev.filter(b => b.id !== batchId))
+      toast.success('Đã xóa phiên gom hàng!')
+    } catch (err: any) {
+      toast.error('Lỗi khi xóa: ' + err.message)
+    }
+  }
+
   if (!isAdmin && batches.length === 0) return null
 
   return (
@@ -246,6 +262,13 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
                       >
                         <Download size={14} />
                         Gộp & Xuất Excel
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBatch(batch.id)}
+                        className="px-2.5 py-1.5 rounded-lg text-rose-400 hover:text-white hover:bg-rose-500/20 transition-colors border border-transparent hover:border-rose-500/30 ml-2"
+                        title="Xóa phiên gom hàng"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   )}
