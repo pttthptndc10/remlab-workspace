@@ -65,7 +65,7 @@ export function ProjectCompletionChart({ data }: ProjectCompletionChartProps) {
           formatter={(value) => [`${value ?? 0}%`, 'Hoàn thành']}
           cursor={{ fill: 'rgba(255,255,255,0.04)' }}
         />
-        <Bar dataKey="completion" radius={[4, 4, 0, 0]}>
+        <Bar dataKey="completion" radius={[4, 4, 0, 0]} maxBarSize={40}>
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={getBarColor(entry.completion)} />
           ))}
