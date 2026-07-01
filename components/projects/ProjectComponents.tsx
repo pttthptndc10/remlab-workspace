@@ -76,7 +76,10 @@ export function ProjectComponents({ project, currentUser }: ProjectComponentsPro
   }
 
   const handleRemoveItem = (id: string) => {
-    if (items.length === 1) return
+    if (items.length === 1) {
+      setItems([{ id: crypto.randomUUID(), name: '', price: 0, shop: '', notes: '' }])
+      return
+    }
     setItems(prev => prev.filter(item => item.id !== id))
   }
 
@@ -243,8 +246,7 @@ export function ProjectComponents({ project, currentUser }: ProjectComponentsPro
                   <td className="p-2 text-center">
                     <button
                       onClick={() => handleRemoveItem(item.id)}
-                      disabled={items.length === 1}
-                      className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+                      className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
