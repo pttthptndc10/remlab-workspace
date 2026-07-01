@@ -38,6 +38,30 @@ body {
   min-height: 100vh;
 }
 
+/* Đảm bảo mọi phần tử có thể click đều hiện con trỏ hình ngón tay */
+button,
+a,
+[role="button"],
+[role="tab"],
+[role="checkbox"],
+[role="switch"],
+select,
+input[type="checkbox"],
+input[type="radio"],
+input[type="button"],
+input[type="submit"],
+input[type="file"],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+.disabled {
+  cursor: not-allowed;
+}
+
 /* Scrollbar tùy chỉnh */
 ::-webkit-scrollbar {
   width: 6px;
