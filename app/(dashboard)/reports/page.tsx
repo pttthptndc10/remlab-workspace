@@ -3,6 +3,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { ProjectCompletionChart } from '@/components/reports/ProjectCompletionChart'
 import { ExportButton } from '@/components/reports/ExportButton'
+import { ComponentBatchManager } from '@/components/reports/ComponentBatchManager'
 import { Badge } from '@/components/ui/Badge'
 import { isOverdue } from '@/lib/utils'
 import type { Task, Project, Profile } from '@/lib/types'
@@ -13,18 +14,25 @@ export const dynamic = 'force-dynamic'
 export default async function ReportsPage() {
   const supabase = await createClient()
 
-  const [tasksResult, projectsResult, profilesResult] = await Promise.all([
+  const [tasksResult, projectsResult, profilesResult, batchesResult, authResult] = await Promise.all([
     supabase
       .from('tasks')
       .select('*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, avatar_url, role)')
       .order('created_at', { ascending: false }),
     supabase.from('projects').select('id, name, status').order('name'),
     supabase.from('profiles').select('id, full_name, role').order('full_name'),
+    supabase.from('component_batches').select('*, creator:profiles!component_batches_created_by_fkey(id, full_name)').order('created_at', { ascending: false }),
+    supabase.auth.getUser()
   ])
 
   const tasks: Task[] = (tasksResult.data ?? []) as Task[]
   const projects: Pick<Project, 'id' | 'name' | 'status'>[] = projectsResult.data ?? []
   const profiles: Pick<Profile, 'id' | 'full_name' | 'role'>[] = profilesResult.data ?? []
+  const componentBatches: any[] = batchesResult.data ?? []
+  
+  // Determine if current user is admin
+  const userProfile = profiles.find(p => p.id === authResult.data?.user?.id)
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'leader'
 
   const totalTasks = tasks.length
   const completedTasks = tasks.filter((t) => t.status === 'done').length
@@ -143,6 +151,9 @@ export default async function ReportsPage() {
             </table>
           </div>
         </div>
+
+        {/* Component Batch Manager */}
+        <ComponentBatchManager initialBatches={componentBatches} isAdmin={isAdmin} />
       </div>
     </DashboardShell>
   )

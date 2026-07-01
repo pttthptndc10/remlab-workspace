@@ -117,6 +117,38 @@ export interface Comment {
   author?: Profile
 }
 
+export interface ComponentBatch {
+  id: string
+  name: string
+  status: 'active' | 'closed'
+  created_by: string
+  created_at: string
+  // Relations
+  creator?: Profile
+  files?: ComponentFile[]
+}
+
+export interface ComponentItem {
+  id: string
+  name: string
+  price: number
+  shop: string
+  notes: string
+}
+
+export interface ComponentFile {
+  id: string
+  project_id: string
+  batch_id: string | null
+  created_by: string
+  content: ComponentItem[]
+  created_at: string
+  // Relations
+  project?: Project
+  batch?: ComponentBatch
+  creator?: Profile
+}
+
 // =====================================================
 // UI / Component Types
 // =====================================================

@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProjectChecklist } from '@/components/projects/ProjectChecklist'
+import { ProjectComponents } from '@/components/projects/ProjectComponents'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { formatDate, getInitials } from '@/lib/utils'
 import type { Project, Task, Profile, ProjectMember } from '@/lib/types'
-import { Calendar, Info, Users, Pencil, CheckSquare, Save } from 'lucide-react'
+import { Calendar, Info, Users, Pencil, CheckSquare, Save, Package } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ProjectForm } from '@/components/projects/ProjectForm'
 import { DashboardShell } from '@/components/layout/DashboardShell'
@@ -20,7 +21,7 @@ interface ProjectDetailClientProps {
   currentUser: Profile
 }
 
-type Tab = 'checklist' | 'members' | 'info'
+type Tab = 'checklist' | 'members' | 'info' | 'components'
 
 export function ProjectDetailClient({
   project,
@@ -127,6 +128,7 @@ export function ProjectDetailClient({
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
+    { id: 'components', label: 'Linh kiện', icon: <Package className="w-4 h-4" /> },
     { id: 'members', label: 'Thành viên', icon: <Users className="w-4 h-4" /> },
     { id: 'info', label: 'Thông tin', icon: <Info className="w-4 h-4" /> },
   ]
@@ -222,6 +224,12 @@ export function ProjectDetailClient({
               setProjectState(updatedProject)
             }}
           />
+        )}
+
+        {activeTab === 'components' && (
+          <div className="animate-fade-in">
+            <ProjectComponents project={projectState} currentUser={currentUser} />
+          </div>
         )}
 
         {activeTab === 'members' && (() => {
