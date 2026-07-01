@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import type { ComponentBatch, ComponentFile } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
+import Link from 'next/link'
 
 interface ComponentBatchManagerProps {
   initialBatches: ComponentBatch[]
@@ -293,7 +294,17 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
                               </div>
                               <div>
                                 <div className="text-sm font-medium text-slate-200">
-                                  Dự án: {file.project?.name || 'Không rõ'}
+                                  Dự án: {' '}
+                                  {file.project?.id ? (
+                                    <Link 
+                                      href={`/projects/${file.project.id}?tab=components`}
+                                      className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
+                                    >
+                                      {file.project.name}
+                                    </Link>
+                                  ) : (
+                                    'Không rõ'
+                                  )}
                                 </div>
                                 <div className="text-xs text-slate-400 mt-0.5">
                                   Người nộp: {file.creator?.full_name || 'Không rõ'} • {formatDate(file.created_at)}

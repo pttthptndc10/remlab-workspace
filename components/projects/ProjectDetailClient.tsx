@@ -32,6 +32,26 @@ export function ProjectDetailClient({
 }: ProjectDetailClientProps) {
   const supabase = createClient()
   const [activeTab, setActiveTab] = useState<Tab>('checklist')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      const tabParam = url.searchParams.get('tab')
+      if (tabParam && ['checklist', 'components', 'members', 'info'].includes(tabParam)) {
+        setActiveTab(tabParam as Tab)
+      }
+    }
+  }, [])
+
+  const handleTabClick = (tabId: Tab) => {
+    setActiveTab(tabId)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', tabId)
+      window.history.replaceState(null, '', url.toString())
+    }
+  }
+
   const [showEdit, setShowEdit] = useState(false)
 
   const checklistSaveRef = useRef<(() => Promise<void>) | null>(null)
@@ -196,7 +216,7 @@ export function ProjectDetailClient({
             <button
               key={tab.id}
               id={`project-tab-${tab.id}`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.id
                   ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
