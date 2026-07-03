@@ -24,6 +24,8 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null)
   const [batchFiles, setBatchFiles] = useState<any[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
+  // Cache tổng tiền mỗi phiên (batchId -> total), giữ nguyên khi thu gọn
+  const [batchTotals, setBatchTotals] = useState<Record<string, number>>({})
 
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,7 +74,19 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
         .order('created_at', { ascending: false })
         
       if (error) throw error
-      setBatchFiles(data || [])
+      const files = data || []
+      setBatchFiles(files)
+
+      // Tính và cache tổng tiền của phiên này
+      let total = 0
+      files.forEach((file: any) => {
+        if (Array.isArray(file.content)) {
+          file.content.forEach((item: any) => {
+            total += (item.price || 0) * (item.quantity || 1)
+          })
+        }
+      })
+      setBatchTotals(prev => ({ ...prev, [batchId]: total }))
     } catch (err: any) {
       toast.error('Lỗi tải danh sách file: ' + err.message)
     } finally {
@@ -250,6 +264,15 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
                   
                   {isAdmin && (
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* Tổng tiền phiên - luôn hiện, kể cả khi thu gọn */}
+                      {batchTotals[batch.id] !== undefined && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                          <span className="text-xs text-emerald-400/70">Tổng:</span>
+                          <span className="text-sm font-bold text-emerald-400 tabular-nums">
+                            {batchTotals[batch.id].toLocaleString('vi-VN')} ₫
+                          </span>
+                        </div>
+                      )}
                       <button
                         onClick={() => handleToggleExpand(batch.id)}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors border border-white/10"
