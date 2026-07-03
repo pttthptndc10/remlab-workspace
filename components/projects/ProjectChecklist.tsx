@@ -189,6 +189,9 @@ export function ProjectChecklist({
   const [savedTasks, setSavedTasks] = useState<Task[]>(initialTasks)
   const [localTasks, setLocalTasks] = useState<Task[]>(initialTasks)
   const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isFirstChecklistLoad = useRef(true)
 
   // Quyền chỉnh sửa chung cho danh sách tasks
   const isProjectMember = projectMembers.some((m) => m.id === currentUser.id)
@@ -406,8 +409,6 @@ export function ProjectChecklist({
           }
         }
       }
-
-      toast.success('Đã lưu thay đổi thành công!')
       const nextSavedTasks = [
         ...localTasks.filter((lt) => !lt.id.startsWith('temp-')),
         ...insertedData,
@@ -415,6 +416,8 @@ export function ProjectChecklist({
 
       setSavedTasks(nextSavedTasks)
       setLocalTasks(nextSavedTasks)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
 
       if (onSaveSuccess) {
         onSaveSuccess(nextSavedTasks, project)
@@ -429,6 +432,23 @@ export function ProjectChecklist({
       setSaving(false)
     }
   }
+
+  // Auto-save: kích hoạt sau 1s khi localTasks thay đổi
+  useEffect(() => {
+    if (isFirstChecklistLoad.current) {
+      isFirstChecklistLoad.current = false
+      return
+    }
+    if (!hasTasksChanged()) return
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    setSaveStatus('saving')
+    autoSaveTimerRef.current = setTimeout(() => {
+      handleSave()
+    }, 1000)
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    }
+  }, [localTasks])
 
   // Synchronize handleSave and dirty states with parent
   const latestHandleSave = useRef(handleSave)
@@ -453,6 +473,7 @@ export function ProjectChecklist({
   })
 
   useEffect(() => {
+    // Cập nhật saveStatus lên parent để hiện indicator
     latestOnDirtyChange.current?.(isDirty, saving)
   }, [isDirty, saving])
 
@@ -914,12 +935,8 @@ export function ProjectChecklist({
         </div>
       )}
 
-      {/* Thông báo có thay đổi chưa lưu */}
-      {isDirty && (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400 font-medium">
-          ⚠️ Bạn đang có thay đổi công việc chưa lưu. Vui lòng nhấn nút &quot;Lưu thay đổi&quot; ở đầu trang.
-        </div>
-      )}
+
+
 
       {/* Danh sách chưa hoàn thành */}
       <div className="glass-card overflow-hidden">

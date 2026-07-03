@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { formatDate, getInitials } from '@/lib/utils'
 import type { Project, Task, Profile, ProjectMember } from '@/lib/types'
-import { Calendar, Info, Users, Pencil, CheckSquare, Save, Package } from 'lucide-react'
+import { Calendar, Info, Users, Pencil, CheckSquare, Package, CheckCircle2, Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ProjectForm } from '@/components/projects/ProjectForm'
 import { DashboardShell } from '@/components/layout/DashboardShell'
@@ -55,12 +55,10 @@ export function ProjectDetailClient({
   const [showEdit, setShowEdit] = useState(false)
 
   const checklistSaveRef = useRef<(() => Promise<void>) | null>(null)
-  const [isDirty, setIsDirty] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [checklistSaveStatus, setChecklistSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
   const handleDirtyChange = useCallback((dirty: boolean, isSaving: boolean) => {
-    setIsDirty(dirty)
-    setSaving(isSaving)
+    if (isSaving) setChecklistSaveStatus('saving')
   }, [])
 
   // Quản lý state của tasks và project ở component cha để Realtime đồng bộ tiến độ lớn
@@ -159,24 +157,18 @@ export function ProjectDetailClient({
       subtitle={`${tasksState.length} tasks · ${completionPct}% hoàn thành`}
       actions={
         <div className="flex items-center gap-2 flex-wrap">
-          {isDirty && activeTab === 'checklist' && (
-            <button
-              id="checklist-save-btn-top"
-              onClick={() => {
-                if (checklistSaveRef.current) {
-                  checklistSaveRef.current()
-                }
-              }}
-              disabled={saving}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${
-                !saving
-                  ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 hover:scale-[1.02] cursor-pointer'
-                  : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-50'
-              }`}
-            >
-              <Save className="w-4 h-4" />
-              {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-            </button>
+          {/* Auto-save indicator */}
+          {checklistSaveStatus === 'saving' && (
+            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Đang lưu...
+            </span>
+          )}
+          {checklistSaveStatus === 'saved' && (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Đã lưu
+            </span>
           )}
           {isAdminOrLeader && (
             <button
