@@ -132,6 +132,7 @@ export interface ComponentItem {
   id: string
   name: string
   price: number
+  quantity: number
   shop: string
   notes: string
 }

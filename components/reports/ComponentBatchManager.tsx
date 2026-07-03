@@ -106,12 +106,16 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
         
         const contents = Array.isArray(file.content) ? file.content : []
         contents.forEach((item: any) => {
+          const qty = item.quantity || 1
+          const lineTotal = (item.price || 0) * qty
           allItems.push({
             'STT': rowIndex++,
             'Dự án': projectName,
             'Người nhập': creatorName,
             'Tên linh kiện': item.name,
-            'Giá (VND)': item.price || 0,
+            'Số lượng': qty,
+            'Đơn giá (VND)': item.price || 0,
+            'Thành tiền (VND)': lineTotal,
             'Shop/Link': item.shop || '',
             'Ghi chú': item.notes || '',
             'Ngày nhập': formatDate(file.created_at)
@@ -135,7 +139,9 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
         { wch: 20 }, // Dự án
         { wch: 20 }, // Người nhập
         { wch: 40 }, // Tên
-        { wch: 15 }, // Giá
+        { wch: 10 }, // SL
+        { wch: 16 }, // Đơn giá
+        { wch: 18 }, // Thành tiền
         { wch: 30 }, // Shop
         { wch: 30 }, // Ghi chú
         { wch: 15 }  // Ngày nhập
@@ -311,8 +317,20 @@ export function ComponentBatchManager({ initialBatches, isAdmin }: ComponentBatc
                                 </div>
                               </div>
                             </div>
-                            <div className="text-xs font-medium text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded">
-                              {Array.isArray(file.content) ? file.content.length : 0} linh kiện
+                            <div className="flex items-center gap-3 shrink-0">
+                              {(() => {
+                                const total = Array.isArray(file.content)
+                                  ? file.content.reduce((s: number, i: any) => s + (i.price || 0) * (i.quantity || 1), 0)
+                                  : 0
+                                return (
+                                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded tabular-nums">
+                                    {total.toLocaleString('vi-VN')} ₫
+                                  </span>
+                                )
+                              })()}
+                              <div className="text-xs font-medium text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded">
+                                {Array.isArray(file.content) ? file.content.length : 0} linh kiện
+                              </div>
                             </div>
                           </div>
                         ))}
