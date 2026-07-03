@@ -296,7 +296,8 @@ export function ProjectChecklist({
   }
 
   // Lưu checklist xuống Supabase
-  const handleSave = async () => {
+  // silent=true: dùng cho auto-save, bỏ qua router.refresh() để tránh vòng lặp
+  const handleSave = async (silent = false) => {
     if (!hasEditPermission) {
       setSaveStatus('idle')
       return
@@ -419,7 +420,14 @@ export function ProjectChecklist({
       ]
 
       setSavedTasks(nextSavedTasks)
-      setLocalTasks(nextSavedTasks)
+      // Chỉ gọi setLocalTasks khi không phải auto-save silent,
+      // vì setLocalTasks sẽ trigger auto-save effect → vòng lặp vô tận
+      if (!silent) {
+        setLocalTasks(nextSavedTasks)
+      } else {
+        // Cập nhật savedTasks ref để hasTasksChanged() đúng ở lần sau
+        setSavedTasks(nextSavedTasks)
+      }
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
 
@@ -427,9 +435,12 @@ export function ProjectChecklist({
         onSaveSuccess(nextSavedTasks, project)
       }
 
-      startTransition(() => {
-        router.refresh()
-      })
+      // Chỉ refresh trang khi lưu thủ công, không refresh khi auto-save
+      if (!silent) {
+        startTransition(() => {
+          router.refresh()
+        })
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Có lỗi xảy ra khi lưu')
       setSaveStatus('idle')  // Reset khi lỗi để spinner không quay mãi
@@ -453,9 +464,8 @@ export function ProjectChecklist({
     if (!hasTasksChanged()) return
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     setSaveStatus('saving')
-    // Dùng latestHandleSave.current để tránh stale closure
     autoSaveTimerRef.current = setTimeout(() => {
-      latestHandleSave.current()
+      latestHandleSave.current(true) // silent = true: bỏ qua router.refresh()
     }, 1000)
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
