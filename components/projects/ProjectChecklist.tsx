@@ -297,19 +297,23 @@ export function ProjectChecklist({
 
   // Lưu checklist xuống Supabase
   const handleSave = async () => {
-    if (!hasEditPermission) return
-    const hasEmptyTitle = localTasks.some((t) => !t.title.trim())
-    if (hasEmptyTitle) {
-      toast.error('Vui lòng điền đầy đủ tên cho các công việc')
+    if (!hasEditPermission) {
+      setSaveStatus('idle')
+      return
+    }
+    // Auto-save: bỏ qua các task có tiêu đề trống thay vì làm dừng và báo lỗi
+    const tasksWithTitle = localTasks.filter((t) => t.title.trim())
+    if (tasksWithTitle.length === 0) {
+      setSaveStatus('idle')
       return
     }
 
     setSaving(true)
     try {
       let insertedData: Task[] = []
-      const tasksToDelete = savedTasks.filter((st) => !localTasks.some((lt) => lt.id === st.id))
-      const tasksToInsert = localTasks.filter((lt) => lt.id.startsWith('temp-'))
-      const tasksToUpdate = localTasks.filter((lt) => {
+      const tasksToDelete = savedTasks.filter((st) => !tasksWithTitle.some((lt) => lt.id === st.id))
+      const tasksToInsert = tasksWithTitle.filter((lt) => lt.id.startsWith('temp-'))
+      const tasksToUpdate = tasksWithTitle.filter((lt) => {
         if (lt.id.startsWith('temp-')) return false
         const saved = savedTasks.find((st) => st.id === lt.id)
         if (!saved) return false
@@ -410,7 +414,7 @@ export function ProjectChecklist({
         }
       }
       const nextSavedTasks = [
-        ...localTasks.filter((lt) => !lt.id.startsWith('temp-')),
+        ...tasksWithTitle.filter((lt) => !lt.id.startsWith('temp-')),
         ...insertedData,
       ]
 
@@ -428,10 +432,17 @@ export function ProjectChecklist({
       })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Có lỗi xảy ra khi lưu')
+      setSaveStatus('idle')  // Reset khi lỗi để spinner không quay mãi
     } finally {
       setSaving(false)
     }
   }
+
+  // Synchronize handleSave với parent (phải đặt trước auto-save effect)
+  const latestHandleSave = useRef(handleSave)
+  useEffect(() => {
+    latestHandleSave.current = handleSave
+  })
 
   // Auto-save: kích hoạt sau 1s khi localTasks thay đổi
   useEffect(() => {
@@ -442,19 +453,14 @@ export function ProjectChecklist({
     if (!hasTasksChanged()) return
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     setSaveStatus('saving')
+    // Dùng latestHandleSave.current để tránh stale closure
     autoSaveTimerRef.current = setTimeout(() => {
-      handleSave()
+      latestHandleSave.current()
     }, 1000)
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     }
   }, [localTasks])
-
-  // Synchronize handleSave and dirty states with parent
-  const latestHandleSave = useRef(handleSave)
-  useEffect(() => {
-    latestHandleSave.current = handleSave
-  })
 
   useEffect(() => {
     if (saveRef) {
