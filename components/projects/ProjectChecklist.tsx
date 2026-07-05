@@ -11,6 +11,7 @@ import {
   History, Eye, Send, RotateCcw, X, Loader2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TaskEvidenceSection } from '@/components/projects/TaskEvidenceSection'
 
 interface ProjectChecklistProps {
   tasks: Task[]
@@ -971,6 +972,8 @@ export function ProjectChecklist({
               key={task.id}
               task={task}
               projectName={project.name}
+              projectId={project.id}
+              currentUser={currentUser}
               hasEditPermission={hasEditPermission}
               allProfiles={allProfiles}
               onToggle={handleToggleStatus}
@@ -1004,6 +1007,8 @@ export function ProjectChecklist({
               key={task.id}
               task={task}
               projectName={project.name}
+              projectId={project.id}
+              currentUser={currentUser}
               hasEditPermission={hasEditPermission}
               allProfiles={allProfiles}
               onToggle={handleToggleStatus}
@@ -1037,6 +1042,8 @@ export function ProjectChecklist({
               key={task.id}
               task={task}
               projectName={project.name}
+              projectId={project.id}
+              currentUser={currentUser}
               hasEditPermission={hasEditPermission}
               allProfiles={allProfiles}
               onToggle={handleToggleStatus}
@@ -1675,6 +1682,8 @@ export function ProjectChecklist({
 interface TaskChecklistRowProps {
   task: Task
   projectName: string
+  projectId: string
+  currentUser: Profile
   hasEditPermission: boolean
   allProfiles: Profile[]
   onToggle: (id: string) => void
@@ -1690,6 +1699,8 @@ interface TaskChecklistRowProps {
 function TaskChecklistRow({
   task,
   projectName,
+  projectId,
+  currentUser,
   hasEditPermission,
   allProfiles,
   onToggle,
@@ -1941,6 +1952,17 @@ function TaskChecklistRow({
             )}
           </div>
         </div>
+
+        {/* Evidence Section - only show for saved tasks (not temp) */}
+        {!task.id.startsWith('temp-') && (
+          <TaskEvidenceSection
+            taskId={task.id}
+            projectId={projectId}
+            currentUser={currentUser}
+            taskAssigneeId={task.assignee_id}
+            isTaskCancelled={isCancelled}
+          />
+        )}
       </div>
     </li>
   )

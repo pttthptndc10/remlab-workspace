@@ -151,6 +151,29 @@ export interface ComponentFile {
 }
 
 // =====================================================
+// Evidence System (Minh chứng thực hiện)
+// =====================================================
+
+export type EvidenceCategory = 'image' | 'document' | 'engineering' | 'archive' | 'video'
+
+export interface TaskEvidence {
+  id: string
+  project_id: string
+  task_id: string
+  uploaded_by: string
+  file_name: string
+  file_type: string
+  category: EvidenceCategory
+  version: number
+  size: number
+  storage_path: string
+  created_at: string
+  // Relations
+  uploader?: Profile
+}
+
+
+// =====================================================
 // UI / Component Types
 // =====================================================
 
