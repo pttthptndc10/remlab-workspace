@@ -2,20 +2,58 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, KeyRound, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, Loader2, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function ResetPasswordForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const code = searchParams.get('code')
   const supabase = createClient()
+
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [showConfirmPass, setShowConfirmPass] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [sessionChecking, setSessionChecking] = useState(true)
+  const [hasValidSession, setHasValidSession] = useState(false)
   const [success, setSuccess] = useState(false)
+
+  // Exchange auth code if present in URL search params or verify recovery session
+  useEffect(() => {
+    async function initSession() {
+      try {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) {
+            console.error('Exchange code error:', error.message)
+          }
+        }
+
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          setHasValidSession(true)
+        } else {
+          // Listen for auth state change
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN')) {
+              setHasValidSession(true)
+            }
+          })
+          return () => subscription.unsubscribe()
+        }
+      } catch (err) {
+        console.error('Init session error:', err)
+      } finally {
+        setSessionChecking(false)
+      }
+    }
+
+    initSession()
+  }, [code, supabase])
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,6 +87,15 @@ function ResetPasswordForm() {
     }
   }
 
+  if (sessionChecking) {
+    return (
+      <div className="glass-card p-8 text-center flex flex-col items-center justify-center min-h-[220px]">
+        <Loader2 size={32} className="animate-spin text-cyan-400 mb-3" />
+        <p className="text-sm text-slate-300 font-medium">Đang xác thực liên kết khôi phục...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full max-w-md relative animate-fade-in">
       {/* Logo */}
@@ -77,6 +124,22 @@ function ResetPasswordForm() {
               className="btn-primary w-full justify-center py-3 text-sm mt-4 inline-flex"
             >
               Quay lại Đăng nhập
+            </Link>
+          </div>
+        ) : !hasValidSession && !code ? (
+          <div className="text-center space-y-4 py-3">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+              <AlertCircle size={24} />
+            </div>
+            <h2 className="text-base font-bold text-slate-100">Liên kết không hợp lệ hoặc đã hết hạn</h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Liên kết khôi phục mật khẩu này có thể đã hết hạn hoặc không còn hợp lệ. Vui lòng yêu cầu lại liên kết mới.
+            </p>
+            <Link
+              href="/login"
+              className="btn-primary w-full justify-center py-2.5 text-xs mt-2 inline-flex"
+            >
+              Yêu cầu lại tại trang Đăng nhập
             </Link>
           </div>
         ) : (
