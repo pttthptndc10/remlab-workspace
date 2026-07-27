@@ -56,7 +56,7 @@ function LoginForm() {
 
     setForgotLoading(true)
     try {
-      const redirectUrl = `${window.location.origin}/reset-password`
+      const redirectUrl = `${window.location.origin}/auth/callback?next=/reset-password`
       const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
         redirectTo: redirectUrl,
       })

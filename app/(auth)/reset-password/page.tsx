@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, KeyRound, Loader2, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, Loader2, CheckCircle2, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function ResetPasswordForm() {
@@ -22,37 +22,59 @@ function ResetPasswordForm() {
   const [hasValidSession, setHasValidSession] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  // Exchange auth code if present in URL search params or verify recovery session
+  // Subcribe to auth state changes and handle code/hash recovery
   useEffect(() => {
-    async function initSession() {
+    let isMounted = true
+
+    async function checkRecoverySession() {
       try {
+        // 1. If code parameter exists, exchange code for session
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) {
-            console.error('Exchange code error:', error.message)
+          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
+          if (exchangeErr) {
+            console.error('Exchange code error:', exchangeErr.message)
           }
         }
 
+        // 2. Check current session
         const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
+        if (session && isMounted) {
           setHasValidSession(true)
-        } else {
-          // Listen for auth state change
-          const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN')) {
-              setHasValidSession(true)
-            }
-          })
-          return () => subscription.unsubscribe()
+          setSessionChecking(false)
+          return
+        }
+
+        // 3. Listen for PASSWORD_RECOVERY or SIGNED_IN event (for hash fragments #access_token=...)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (!isMounted) return
+          if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+            setHasValidSession(true)
+            setSessionChecking(false)
+          }
+        })
+
+        // Timeout fallback if no session is detected after 2 seconds
+        const timer = setTimeout(() => {
+          if (isMounted) {
+            setSessionChecking(false)
+          }
+        }, 2000)
+
+        return () => {
+          subscription.unsubscribe()
+          clearTimeout(timer)
         }
       } catch (err) {
-        console.error('Init session error:', err)
-      } finally {
-        setSessionChecking(false)
+        console.error('Session check error:', err)
+        if (isMounted) setSessionChecking(false)
       }
     }
 
-    initSession()
+    checkRecoverySession()
+
+    return () => {
+      isMounted = false
+    }
   }, [code, supabase])
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -75,7 +97,12 @@ function ResetPasswordForm() {
       })
 
       if (error) {
-        toast.error('Lỗi đặt lại mật khẩu: ' + error.message)
+        if (error.message.includes('session missing') || error.message.includes('Auth session missing')) {
+          toast.error('Phiên làm việc đã hết hạn. Vui lòng gửi lại yêu cầu khôi phục mật khẩu mới.')
+          setHasValidSession(false)
+        } else {
+          toast.error('Lỗi đặt lại mật khẩu: ' + error.message)
+        }
       } else {
         setSuccess(true)
         toast.success('Đặt lại mật khẩu thành công!')
@@ -89,9 +116,11 @@ function ResetPasswordForm() {
 
   if (sessionChecking) {
     return (
-      <div className="glass-card p-8 text-center flex flex-col items-center justify-center min-h-[220px]">
-        <Loader2 size={32} className="animate-spin text-cyan-400 mb-3" />
-        <p className="text-sm text-slate-300 font-medium">Đang xác thực liên kết khôi phục...</p>
+      <div className="w-full max-w-md relative animate-fade-in">
+        <div className="glass-card p-8 text-center flex flex-col items-center justify-center min-h-[220px]">
+          <Loader2 size={32} className="animate-spin text-cyan-400 mb-3" />
+          <p className="text-sm text-slate-300 font-medium">Đang kiểm tra liên kết khôi phục...</p>
+        </div>
       </div>
     )
   }
@@ -126,21 +155,30 @@ function ResetPasswordForm() {
               Quay lại Đăng nhập
             </Link>
           </div>
-        ) : !hasValidSession && !code ? (
+        ) : !hasValidSession ? (
           <div className="text-center space-y-4 py-3">
             <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
               <AlertCircle size={24} />
             </div>
-            <h2 className="text-base font-bold text-slate-100">Liên kết không hợp lệ hoặc đã hết hạn</h2>
+            <h2 className="text-base font-bold text-slate-100">Chưa có phiên khôi phục hợp lệ</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Liên kết khôi phục mật khẩu này có thể đã hết hạn hoặc không còn hợp lệ. Vui lòng yêu cầu lại liên kết mới.
+              Liên kết khôi phục mật khẩu đã hết hạn hoặc bạn đã mở trực tiếp trang này mà không qua liên kết email. 
+              Vui lòng yêu cầu lại liên kết mới từ trang đăng nhập.
             </p>
-            <Link
-              href="/login"
-              className="btn-primary w-full justify-center py-2.5 text-xs mt-2 inline-flex"
-            >
-              Yêu cầu lại tại trang Đăng nhập
-            </Link>
+            <div className="pt-2 flex flex-col gap-2">
+              <Link
+                href="/login"
+                className="btn-primary w-full justify-center py-2.5 text-xs inline-flex items-center gap-1.5"
+              >
+                <RefreshCw size={14} /> Yêu cầu gửi lại email khôi phục
+              </Link>
+              <Link
+                href="/login"
+                className="text-xs text-slate-400 hover:text-cyan-400 py-1 transition-colors"
+              >
+                Quay lại trang Đăng nhập
+              </Link>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-5">
